@@ -1,0 +1,99 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account profile with role authorization and approval state",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email", "description": "User email address" },
+        "displayName": { "type": "string", "maxLength": 100, "description": "User full name" },
+        "role": { "type": "string", "enum": ["master", "owner", "admin"], "description": "Role level: Master System, Owner, or Admin" },
+        "customerName": { "type": "string", "maxLength": 150, "description": "Nama Customer free text" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"], "description": "Approval status by Master System" },
+        "createdAt": { "type": "string", "description": "ISO timestamp of account creation" },
+        "approvedAt": { "type": "string", "description": "ISO timestamp of account approval" },
+        "approvedBy": { "type": "string", "description": "UID of Master System who approved account" }
+      },
+      "required": ["uid", "email", "displayName", "role", "customerName", "status", "createdAt"]
+    },
+    "SuratJalanItem": {
+      "title": "SuratJalanItem",
+      "description": "Individual sparepart item from Surat Jalan delivery note",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique record identifier" },
+        "nomorSuratJalan": { "type": "string", "maxLength": 50, "description": "Nomor Surat Jalan" },
+        "shipmentNumber": { "type": "string", "maxLength": 50, "description": "Shipment Number SAP" },
+        "delivery": { "type": "string", "maxLength": 50, "description": "Delivery Order Number" },
+        "handlingUnit": { "type": "string", "maxLength": 50, "description": "Handling Unit ID" },
+        "material": { "type": "string", "maxLength": 60, "description": "Nomor Sparepart Material" },
+        "materialDescription": { "type": "string", "maxLength": 200, "description": "Deskripsi Sparepart" },
+        "quantity": { "type": "number", "description": "Quantity dari dokumen Surat Jalan" },
+        "handlingUnitUom": { "type": "string", "maxLength": 20, "description": "Unit of Measure (e.g. PC)" },
+        "salesDocumentType": { "type": "string", "maxLength": 20, "description": "Sales Document Type (e.g. I3SG)" },
+        "plant": { "type": "string", "maxLength": 20, "description": "Plant code (e.g. I300)" },
+        "documentDate": { "type": "string", "maxLength": 20, "description": "Tanggal Dokumen" },
+        "customerReference": { "type": "string", "maxLength": 50, "description": "Customer PO/Reference" },
+        "customerRefDate": { "type": "string", "maxLength": 20, "description": "Tanggal Referensi Customer" },
+        "collie": { "type": "number", "description": "Jumlah Koli / Kemasan" },
+        "totalWeight": { "type": "number", "description": "Berat Total" },
+        "weightUnit": { "type": "string", "maxLength": 20, "description": "Satuan Berat" },
+        "totalVolume": { "type": "number", "description": "Volume Total" },
+        "volumeUnit": { "type": "string", "maxLength": 20, "description": "Satuan Volume" },
+        "name": { "type": "string", "maxLength": 150, "description": "Nama Customer atau Cabang" },
+        "uploadDate": { "type": "string", "description": "Tanggal Upload YYYY-MM-DD" },
+        "uploadTimestamp": { "type": "number", "description": "Epoch timestamp upload" },
+        "uploadedBy": { "type": "string", "description": "User UID who uploaded" },
+        "status": { "type": "string", "enum": ["uploaded", "checking", "completed"], "description": "Tahapan status item" },
+        "qtyAktual": { "type": "number", "description": "Kuantitas fisik yang diterima" },
+        "isChecked": { "type": "boolean", "description": "Status ceklis fisik" },
+        "hasDiscrepancy": { "type": "boolean", "description": "Apakah terdapat selisih kurang (shortage)" },
+        "discrepancyQty": { "type": "number", "description": "Jumlah selisih (Quantity - QtyAktual)" },
+        "checkedBy": { "type": "string", "description": "Petugas yang melakukan cek fisik" },
+        "completedDate": { "type": "string", "description": "Tanggal proses rekonsiliasi selesai" },
+        "notes": { "type": "string", "maxLength": 500, "description": "Catatan hasil pemeriksaan" }
+      },
+      "required": ["id", "nomorSuratJalan", "material", "quantity", "uploadDate", "status"]
+    },
+    "ReturnSalesClaim": {
+      "title": "ReturnSalesClaim",
+      "description": "Shortage claim created automatically when Qty Aktual < Quantity Surat Jalan",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique claim ID" },
+        "shipmentItemId": { "type": "string", "description": "Reference to SuratJalanItem id" },
+        "nomorSuratJalan": { "type": "string", "maxLength": 50, "description": "Nomor Surat Jalan" },
+        "shipmentNumber": { "type": "string", "maxLength": 50, "description": "Shipment Number" },
+        "material": { "type": "string", "maxLength": 60, "description": "Part Number Material" },
+        "materialDescription": { "type": "string", "maxLength": 200, "description": "Deskripsi Material" },
+        "customerName": { "type": "string", "maxLength": 150, "description": "Nama Customer" },
+        "qtySuratJalan": { "type": "number", "description": "Quantity dokumen" },
+        "qtyAktual": { "type": "number", "description": "Quantity fisik diterima" },
+        "qtyShortage": { "type": "number", "description": "Selisih Qty Shortage" },
+        "uom": { "type": "string", "maxLength": 20, "description": "Satuan" },
+        "status": { "type": "string", "enum": ["opened", "inprogress", "completed"], "description": "Claim Status: opened, inprogress, or completed" },
+        "createdDate": { "type": "string", "description": "Tanggal klaim dibuat" },
+        "submittedDate": { "type": "string", "description": "Tanggal dokumen bukti disubmit / resubmit" },
+        "approvedBy": { "type": "string", "description": "Nama / UID Owner yang menyetujui klaim" },
+        "approvedAt": { "type": "string", "description": "Timestamp approval" },
+        "approvalNotes": { "type": "string", "maxLength": 500, "description": "Catatan persetujuan dari Owner" }
+      },
+      "required": ["id", "shipmentItemId", "nomorSuratJalan", "material", "qtyShortage", "status", "createdDate"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles and role authorizations"
+    },
+    "/shipments/{itemId}": {
+      "schema": "SuratJalanItem",
+      "description": "Parsed Surat Jalan sparepart line items and reconciliation state"
+    },
+    "/return_sales/{claimId}": {
+      "schema": "ReturnSalesClaim",
+      "description": "Discrepancy claims, evidence documents, and approval status"
+    }
+  }
+}

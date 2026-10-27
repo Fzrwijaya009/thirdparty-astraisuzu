@@ -1,0 +1,6 @@
+{
+  "name": "TP-SYNCS - Astra Isuzu",
+  "description": "TP-SYNCS (Third Party Synchronize System) - Departemen Retail & Part Services PT Astra International Tbk - Isuzu",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
