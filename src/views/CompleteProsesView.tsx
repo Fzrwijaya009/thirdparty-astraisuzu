@@ -43,8 +43,14 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [completeDateFilter, setCompleteDateFilter] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState<string>('all');
+  const [selectedSuratJalan, setSelectedSuratJalan] = useState<string>('all');
   // Requirement 3: Button renamed to "Item Problem (Claimed)"
   const [problemOnlyFilter, setProblemOnlyFilter] = useState(false);
+
+  const isOwnerOrMaster = currentUser?.role === 'owner' || currentUser?.role === 'master';
+  const customerList = Array.from(new Set(completedItems.map(i => i.name).filter(Boolean))).sort();
+  const suratJalanList = Array.from(new Set(completedItems.map(i => i.nomorSuratJalan).filter(Boolean))).sort();
 
   // Edit inline state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -63,6 +69,12 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
   const [fotoDetailItemName, setFotoDetailItemName] = useState('');
 
   const filteredItems = completedItems.filter(item => {
+    if (selectedCustomer !== 'all' && item.name !== selectedCustomer) {
+      return false;
+    }
+    if (selectedSuratJalan !== 'all' && item.nomorSuratJalan !== selectedSuratJalan) {
+      return false;
+    }
     if (completeDateFilter && item.completedDate !== completeDateFilter) {
       return false;
     }
@@ -311,6 +323,34 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                 </button>
               )}
             </div>
+
+            {/* Dropdown Filter: Customer (Khusus Owner/Master atau multi-customer) */}
+            {(isOwnerOrMaster || customerList.length > 1) && (
+              <select
+                value={selectedCustomer}
+                onChange={(e) => setSelectedCustomer(e.target.value)}
+                className="px-3 py-2 text-xs font-semibold bg-white border border-slate-300 rounded-xl outline-none text-slate-800 max-w-[210px] truncate"
+                title="Filter Berdasarkan Customer"
+              >
+                <option value="all">🏢 Semua Customer ({customerList.length})</option>
+                {customerList.map(cust => (
+                  <option key={cust} value={cust}>{cust}</option>
+                ))}
+              </select>
+            )}
+
+            {/* Dropdown Filter: Surat Jalan */}
+            <select
+              value={selectedSuratJalan}
+              onChange={(e) => setSelectedSuratJalan(e.target.value)}
+              className="px-3 py-2 text-xs font-semibold bg-white border border-slate-300 rounded-xl outline-none text-slate-800"
+              title="Filter Berdasarkan No Surat Jalan"
+            >
+              <option value="all">📄 Semua Surat Jalan ({suratJalanList.length})</option>
+              {suratJalanList.map(sj => (
+                <option key={sj} value={sj}>SJ: {sj}</option>
+              ))}
+            </select>
 
             <div className="relative min-w-[240px] flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />

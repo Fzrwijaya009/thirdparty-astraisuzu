@@ -61,8 +61,6 @@ function AppContent() {
             <span className="font-bold text-slate-700">TP-SYNCS</span>
             <span>•</span>
             <span>Third Party Synchronize System</span>
-            <span>•</span>
-            <span>Plant I300 Sunter</span>
           </div>
         </div>
       </footer>

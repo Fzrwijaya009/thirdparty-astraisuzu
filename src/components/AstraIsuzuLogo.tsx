@@ -11,6 +11,7 @@ interface AstraIsuzuLogoProps {
   className?: string;
   alt?: string;
   onClick?: () => void;
+  style?: React.CSSProperties;
 }
 
 /**
@@ -22,7 +23,8 @@ interface AstraIsuzuLogoProps {
 export const AstraIsuzuLogo: React.FC<AstraIsuzuLogoProps> = ({
   className = 'h-10 w-auto object-contain',
   alt = 'PT Astra International Tbk - Isuzu',
-  onClick
+  onClick,
+  style
 }) => {
   const [hasError, setHasError] = useState(false);
 
@@ -36,6 +38,7 @@ export const AstraIsuzuLogo: React.FC<AstraIsuzuLogoProps> = ({
       onError={() => setHasError(true)}
       className={className}
       onClick={onClick}
+      style={style}
       loading="eager"
       decoding="async"
     />

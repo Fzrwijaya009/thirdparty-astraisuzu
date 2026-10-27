@@ -68,29 +68,43 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
             <title>Berita Acara Rekonsiliasi - ${data.nomorSuratJalan || 'SJ'}</title>
             <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
             <style>
-              body {
-                font-family: 'Plus Jakarta Sans', Arial, sans-serif;
-                margin: 20px;
-                color: #111827;
-                background: white;
-                font-size: 11px;
+              @page {
+                size: A4 portrait;
+                margin: 10mm 12mm 10mm 12mm;
               }
-              table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-              th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; }
-              th { background-color: #f3f4f6; font-weight: bold; }
+              * {
+                box-sizing: border-box;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              body {
+                font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+                margin: 0;
+                padding: 10px;
+                color: #0f172a;
+                background: #ffffff;
+                font-size: 10px;
+                line-height: 1.35;
+              }
+              img {
+                height: 38px !important;
+                max-height: 38px !important;
+                width: auto !important;
+                max-width: 170px !important;
+                object-fit: contain !important;
+                display: block !important;
+              }
+              table { width: 100%; border-collapse: collapse; margin-top: 10px; page-break-inside: auto; }
+              tr { page-break-inside: avoid; page-break-after: auto; }
+              th, td { border: 1px solid #cbd5e1; padding: 5px 6px; text-align: left; font-size: 9.5px; }
+              th { background-color: #f1f5f9 !important; font-weight: bold; }
               .text-center { text-align: center; }
               .text-right { text-align: right; }
               .font-bold { font-weight: bold; }
-              .font-mono { font-family: 'JetBrains Mono', monospace; }
-              .header { display: flex; justify-content: space-between; border-bottom: 2px solid #111827; padding-bottom: 12px; margin-bottom: 15px; }
-              .logo { height: 45px; }
-              .title-box { text-align: center; margin: 15px 0; }
-              .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; background: #f9fafb; border: 1px solid #e5e7eb; padding: 10px; border-radius: 8px; margin-bottom: 15px; }
-              .sign-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 35px; text-align: center; }
-              .sign-box { border: 1px solid #e5e7eb; padding: 10px; border-radius: 8px; }
-              .sign-line { border-bottom: 1px solid #9ca3af; margin: 50px auto 5px auto; width: 80%; }
-              .badge-shortage { color: #b91c1c; font-weight: bold; background: #fee2e2; padding: 2px 6px; border-radius: 4px; }
-              .badge-match { color: #047857; font-weight: bold; background: #d1fae5; padding: 2px 6px; border-radius: 4px; }
+              .font-mono { font-family: monospace; }
+              .badge-shortage { color: #dc2626; font-weight: bold; background: #fee2e2; padding: 2px 4px; border-radius: 4px; }
+              .badge-match { color: #16a34a; font-weight: bold; background: #dcfce7; padding: 2px 4px; border-radius: 4px; }
+              .no-print { display: none !important; }
             </style>
           </head>
           <body>
@@ -297,7 +311,12 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
           {/* Header Astra Isuzu */}
           <div className="flex items-start justify-between border-b-2 border-slate-800 pb-5 mb-5">
             <div className="flex items-center gap-4">
-              <AstraIsuzuLogo className="h-12 w-auto object-contain" />
+              <div style={{ height: '38px', maxHeight: '38px', width: 'auto', display: 'flex', alignItems: 'center' }}>
+                <AstraIsuzuLogo 
+                  className="h-10 w-auto object-contain" 
+                  style={{ height: '38px', maxHeight: '38px', width: 'auto', objectFit: 'contain' }}
+                />
+              </div>
               <div className="border-l pl-4 border-slate-300">
                 <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">
                   PT Astra International Tbk - Isuzu

@@ -35,23 +35,42 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
 
   // Search bar khusus untuk mencari "Material" (nomor sparepart)
   const [materialSearch, setMaterialSearch] = useState('');
+
+  // Dropdown filter states for Owner and Master System
+  const [selectedCustomer, setSelectedCustomer] = useState<string>('all');
   const [selectedSuratJalan, setSelectedSuratJalan] = useState<string>('all');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'shortage' | 'match'>('all');
+
+  // Notice after submission
   const [submitNotice, setSubmitNotice] = useState<{ completedCount: number; shortageCount: number } | null>(null);
+
+  const isOwnerOrMaster = currentUser?.role === 'owner' || currentUser?.role === 'master';
 
   // Filter items that are pending check AND accessible to current user (Admin isolation)
   const pendingItems = items.filter(item => item.status !== 'completed' && canAccessItem(item.name));
 
-  // List of unique Surat Jalan for quick dropdown filter
-  const suratJalanList = Array.from(new Set(pendingItems.map(i => i.nomorSuratJalan)));
+  // Unique lists for dropdown filters
+  const customerList = Array.from(new Set(pendingItems.map(i => i.name).filter(Boolean))).sort();
+  const suratJalanList = Array.from(new Set(pendingItems.map(i => i.nomorSuratJalan).filter(Boolean))).sort();
 
-  // Apply filters: specific search on Material (part number) & optional Surat Jalan filter
+  // Apply filters: Customer, Surat Jalan, Status Selisih, & Search Material
   const displayItems = pendingItems.filter(item => {
+    if (selectedCustomer !== 'all' && item.name !== selectedCustomer) {
+      return false;
+    }
     if (selectedSuratJalan !== 'all' && item.nomorSuratJalan !== selectedSuratJalan) {
       return false;
     }
+    if (selectedStatusFilter === 'shortage') {
+      const act = item.qtyAktual !== undefined ? item.qtyAktual : item.quantity;
+      if (act >= item.quantity) return false;
+    } else if (selectedStatusFilter === 'match') {
+      const act = item.qtyAktual !== undefined ? item.qtyAktual : item.quantity;
+      if (act < item.quantity) return false;
+    }
+
     if (materialSearch.trim()) {
       const q = materialSearch.trim().toLowerCase();
-      // Specifically searches Material, but also matches description if useful
       const matchMaterial = item.material.toLowerCase().includes(q);
       const matchDesc = item.materialDescription.toLowerCase().includes(q);
       return matchMaterial || matchDesc;
@@ -210,19 +229,45 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
             )}
           </div>
 
-          {/* Filter Surat Jalan */}
-          {suratJalanList.length > 1 && (
+          {/* Dropdown Filter: Nama Customer / Perusahaan (Khusus Owner & Master atau multi-customer) */}
+          {(isOwnerOrMaster || customerList.length > 1) && (
             <select
-              value={selectedSuratJalan}
-              onChange={(e) => setSelectedSuratJalan(e.target.value)}
-              className="px-3 py-2 text-xs font-medium bg-slate-50 border border-slate-300 rounded-xl outline-none"
+              value={selectedCustomer}
+              onChange={(e) => setSelectedCustomer(e.target.value)}
+              className="px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl outline-none text-slate-800 max-w-[220px] truncate"
+              title="Filter Berdasarkan Customer"
             >
-              <option value="all">Semua Surat Jalan ({suratJalanList.length})</option>
-              {suratJalanList.map(sj => (
-                <option key={sj} value={sj}>SJ: {sj}</option>
+              <option value="all">🏢 Semua Customer ({customerList.length})</option>
+              {customerList.map(cust => (
+                <option key={cust} value={cust}>{cust}</option>
               ))}
             </select>
           )}
+
+          {/* Filter Surat Jalan */}
+          <select
+            value={selectedSuratJalan}
+            onChange={(e) => setSelectedSuratJalan(e.target.value)}
+            className="px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl outline-none text-slate-800"
+            title="Filter Berdasarkan Nomor Surat Jalan"
+          >
+            <option value="all">📄 Semua Surat Jalan ({suratJalanList.length})</option>
+            {suratJalanList.map(sj => (
+              <option key={sj} value={sj}>SJ: {sj}</option>
+            ))}
+          </select>
+
+          {/* Filter Status Fisik */}
+          <select
+            value={selectedStatusFilter}
+            onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
+            className="px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl outline-none text-slate-800"
+            title="Filter Berdasarkan Status Fisik Barang"
+          >
+            <option value="all">🔍 Semua Status Fisik</option>
+            <option value="shortage">⚠️ Ada Selisih (Shortage)</option>
+            <option value="match">✅ Kuantitas Sesuai</option>
+          </select>
         </div>
 
         {/* Bulk Action Controls */}

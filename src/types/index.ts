@@ -87,10 +87,16 @@ export interface ReturnSalesClaim {
   penjelasanClaim?: string;
   createdDate: string;
   submittedDate?: string;
-  documents: ClaimDocuments;
+  submittedBy?: string;
+  // Analisa Owner
+  analyzedAt?: string;
+  analyzedBy?: string;
+  analisaNotes?: string;
+  // Approval Owner
   approvedBy?: string;
   approvedAt?: string;
   approvalNotes?: string;
+  documents: ClaimDocuments;
 }
 
 export interface CheckSummaryModalData {

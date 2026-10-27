@@ -72,8 +72,8 @@ export const Navbar: React.FC<NavbarProps> = ({ activeMenu, onSelectMenu, onOpen
               <span className="text-sm sm:text-base font-black uppercase tracking-tight text-slate-900 block leading-none">
                 TP-SYNCS
               </span>
-              <span className="text-[9px] sm:text-[10px] font-bold text-[#005BAC] tracking-wide uppercase block mt-0.5 sm:mt-1 truncate max-w-[130px] sm:max-w-none">
-                Third Party Sync System
+              <span className="text-[9px] sm:text-[10px] font-bold text-[#005BAC] tracking-wide uppercase block mt-0.5 sm:mt-1 truncate max-w-[160px] sm:max-w-none">
+                Third Party Synchronize System
               </span>
             </div>
           </div>

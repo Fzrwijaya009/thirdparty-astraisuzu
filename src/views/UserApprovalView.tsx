@@ -15,12 +15,13 @@ import {
   Building, 
   Mail, 
   ShieldAlert,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Trash2
 } from 'lucide-react';
 import { exportToExcel } from '../utils/excel';
 
 export const UserApprovalView: React.FC = () => {
-  const { allUsers, approveUser, rejectUser, currentUser } = useApp();
+  const { allUsers, approveUser, rejectUser, deleteUser, currentUser } = useApp();
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'approved'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -230,30 +231,49 @@ export const UserApprovalView: React.FC = () => {
                     </td>
 
                     <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                      {u.status === 'pending' ? (
-                        <div className="flex items-center justify-center gap-1.5">
+                      <div className="flex items-center justify-center gap-1.5">
+                        {u.status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => approveUser(u.uid)}
+                              disabled={!isMaster}
+                              title="Setujui Akun (Approve)"
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 disabled:opacity-40"
+                            >
+                              <Check className="w-3.5 h-3.5" /> Approve
+                            </button>
+                            <button
+                              onClick={() => rejectUser(u.uid)}
+                              disabled={!isMaster}
+                              title="Tolak Akun"
+                              className="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded transition disabled:opacity-40"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+
+                        {isMaster && u.email.toLowerCase() !== 'fajrisani12@gmail.com' && (
                           <button
-                            onClick={() => approveUser(u.uid)}
-                            disabled={!isMaster}
-                            title="Setujui Akun (Approve)"
-                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 disabled:opacity-40"
+                            onClick={async () => {
+                              if (window.confirm(`Hapus akun ${u.displayName} (${u.email})? Pengguna yang dihapus harus mendaftar ulang untuk dapat mengakses sistem.`)) {
+                                const res = await deleteUser(u.uid);
+                                if (res.message) alert(res.message);
+                              }
+                            }}
+                            title="Hapus Akun Pengguna"
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
                           >
-                            <Check className="w-3.5 h-3.5" /> Approve
+                            <Trash2 className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => rejectUser(u.uid)}
-                            disabled={!isMaster}
-                            title="Tolak Akun"
-                            className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition disabled:opacity-40"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] text-slate-400 font-mono">
-                          {u.approvedBy ? `by ${u.approvedBy}` : '-'}
-                        </span>
-                      )}
+                        )}
+
+                        {u.status !== 'pending' && (!isMaster || u.email.toLowerCase() === 'fajrisani12@gmail.com') && (
+                          <span className="text-[11px] text-slate-400 font-mono">
+                            {u.approvedBy ? `by ${u.approvedBy}` : '-'}
+                          </span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -314,24 +334,40 @@ export const UserApprovalView: React.FC = () => {
                   </div>
                 </div>
 
-                {u.status === 'pending' && (
-                  <div className="flex items-center gap-2 pt-1">
+                <div className="flex items-center gap-2 pt-1">
+                  {u.status === 'pending' && (
+                    <>
+                      <button
+                        onClick={() => approveUser(u.uid)}
+                        disabled={!isMaster}
+                        className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs"
+                      >
+                        <Check className="w-4 h-4" /> Setujui Akun
+                      </button>
+                      <button
+                        onClick={() => rejectUser(u.uid)}
+                        disabled={!isMaster}
+                        className="px-3 py-2 text-amber-700 hover:bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold transition flex items-center justify-center"
+                      >
+                        <X className="w-4 h-4" /> Tolak
+                      </button>
+                    </>
+                  )}
+
+                  {isMaster && u.email.toLowerCase() !== 'fajrisani12@gmail.com' && (
                     <button
-                      onClick={() => approveUser(u.uid)}
-                      disabled={!isMaster}
-                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs"
+                      onClick={async () => {
+                        if (window.confirm(`Hapus akun ${u.displayName} (${u.email})? Pengguna yang dihapus harus mendaftar ulang untuk dapat mengakses sistem.`)) {
+                          const res = await deleteUser(u.uid);
+                          if (res.message) alert(res.message);
+                        }
+                      }}
+                      className="px-3 py-2 text-red-600 hover:bg-red-50 border border-red-200 rounded-xl text-xs font-bold transition flex items-center gap-1 ml-auto"
                     >
-                      <Check className="w-4 h-4" /> Setujui Akun (Approve)
+                      <Trash2 className="w-4 h-4" /> Hapus
                     </button>
-                    <button
-                      onClick={() => rejectUser(u.uid)}
-                      disabled={!isMaster}
-                      className="px-3 py-2 text-red-600 hover:bg-red-50 border border-red-200 rounded-xl text-xs font-bold transition flex items-center justify-center"
-                    >
-                      <X className="w-4 h-4" /> Tolak
-                    </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             ))
           )}

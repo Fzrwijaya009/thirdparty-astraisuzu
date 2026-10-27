@@ -42,6 +42,7 @@ interface AppContextType {
   logout: () => void;
   approveUser: (uid: string) => Promise<void>;
   rejectUser: (uid: string) => Promise<void>;
+  deleteUser: (uid: string) => Promise<{ success: boolean; message?: string }>;
 
   // Shipments / Surat Jalan
   items: SuratJalanItem[];
@@ -62,6 +63,7 @@ interface AppContextType {
     documents: ClaimDocuments;
   }) => { success: boolean; message?: string };
   submitClaimDocs: (claimId: string, docs: ClaimDocuments) => void;
+  analyzeClaim: (claimId: string, notes: string) => { success: boolean; message?: string };
   approveClaim: (claimId: string, notes?: string) => { success: boolean; message?: string };
   deleteClaim: (claimId: string) => { success: boolean; message?: string };
 
@@ -515,6 +517,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAllUsers(prev => prev.map(u => (u.uid === uid ? { ...u, status: 'rejected' } : u)));
   };
 
+  // Requirement 3: Otorisasi Hapus Akun pada akun Master System fajrisani12@gmail.com
+  const deleteUser = async (uid: string): Promise<{ success: boolean; message?: string }> => {
+    if (currentUser?.role !== 'master' || currentUser?.email.toLowerCase() !== 'fajrisani12@gmail.com') {
+      return { 
+        success: false, 
+        message: 'Akses Ditolak: Hanya akun Master System (fajrisani12@gmail.com) yang berwenang menghapus akun.' 
+      };
+    }
+
+    const targetUser = allUsers.find(u => u.uid === uid);
+    if (!targetUser) return { success: false, message: 'Akun pengguna tidak ditemukan.' };
+
+    if (targetUser.email.toLowerCase() === 'fajrisani12@gmail.com') {
+      return { success: false, message: 'Akun Master Utama fajrisani12@gmail.com tidak dapat dihapus.' };
+    }
+
+    try {
+      await deleteDoc(doc(db, 'users', uid));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `users/${uid}`);
+    }
+
+    setAllUsers(prev => prev.filter(u => u.uid !== uid));
+    setUserPasswords(prev => {
+      const copy = { ...prev };
+      delete copy[targetUser.email.toLowerCase()];
+      return copy;
+    });
+
+    return { 
+      success: true, 
+      message: `Akun ${targetUser.displayName} (${targetUser.email}) berhasil dihapus. Pengguna harus mendaftar ulang jika ingin mengakses kembali.` 
+    };
+  };
+
   // Shipments: Add items to database from preview staging
   // Requirement 3: Owner & Master memiliki wewenang upload Surat Jalan
   const addItemsToDatabase = async (newItems: SuratJalanItem[]) => {
@@ -727,6 +764,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const existingClaim = claims.find(c => c.shipmentItemId === data.shipmentItemId);
     const claimId = existingClaim ? existingClaim.id : `CLM-${todayStr.replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`;
 
+    const nowIso = new Date().toISOString();
+    const submitter = currentUser?.displayName || (currentUser?.role === 'admin' ? `Admin (${currentUser.customerName})` : 'User');
+
     const newClaim: ReturnSalesClaim = {
       id: claimId,
       shipmentItemId: targetItem.id,
@@ -746,7 +786,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       jenisClaim: data.jenisClaim,
       penjelasanClaim: data.penjelasanClaim,
       createdDate: existingClaim ? existingClaim.createdDate : todayStr,
-      submittedDate: nowStr,
+      submittedDate: nowIso,
+      submittedBy: submitter,
       documents: {
         ...data.documents,
         keterangan: data.penjelasanClaim
@@ -771,13 +812,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const submitClaimDocs = (claimId: string, docs: ClaimDocuments) => {
-    const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
+    const nowIso = new Date().toISOString();
+    const submitterName = currentUser?.displayName || 'Admin Checker';
     setClaims(prev => prev.map(claim => {
       if (claim.id === claimId) {
-        const updated = {
+        const updated: ReturnSalesClaim = {
           ...claim,
           status: 'inprogress' as const,
-          submittedDate: nowStr,
+          submittedDate: claim.submittedDate || nowIso,
+          submittedBy: claim.submittedBy || submitterName,
           documents: { ...claim.documents, ...docs }
         };
         setDoc(doc(db, 'return_sales', claimId), cleanFirestoreData(updated)).catch(e => {
@@ -789,7 +832,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
-  // Requirement 3: Approval klaim dapat dilakukan oleh Owner maupun Master System
+  // Requirement 5: Tangkapan waktu analisa dari Owner
+  const analyzeClaim = (claimId: string, notes: string): { success: boolean; message?: string } => {
+    if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'master')) {
+      return {
+        success: false,
+        message: 'Akses Ditolak: Hanya akun Owner atau Master System yang berwenang melakukan analisa klaim.'
+      };
+    }
+
+    const nowIso = new Date().toISOString();
+    const analyst = currentUser.displayName || (currentUser.role === 'owner' ? 'Owner Part Services' : 'Master System');
+
+    setClaims(prev => prev.map(claim => {
+      if (claim.id === claimId) {
+        const updated: ReturnSalesClaim = {
+          ...claim,
+          analyzedAt: nowIso,
+          analyzedBy: analyst,
+          analisaNotes: notes
+        };
+        setDoc(doc(db, 'return_sales', claimId), cleanFirestoreData(updated)).catch(e => {
+          handleFirestoreError(e, OperationType.UPDATE, `return_sales/${claimId}`);
+        });
+        return updated;
+      }
+      return claim;
+    }));
+
+    return { success: true, message: 'Analisa klaim berhasil disimpan.' };
+  };
+
+  // Requirement 3 & 5: Approval klaim dengan tangkapan waktu selesai
   const approveClaim = (claimId: string, notes?: string): { success: boolean; message?: string } => {
     if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'master')) {
       return {
@@ -798,15 +872,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
     }
 
-    const nowStr = new Date().toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
+    const nowIso = new Date().toISOString();
+    const approver = currentUser.displayName || (currentUser.role === 'owner' ? 'Owner Part Services' : 'Master System');
+
     setClaims(prev => prev.map(claim => {
       if (claim.id === claimId) {
-        const updated = {
+        const updated: ReturnSalesClaim = {
           ...claim,
           status: 'completed' as const,
-          approvedBy: currentUser.displayName || (currentUser.role === 'owner' ? 'Owner Part Services' : 'Master System'),
-          approvedAt: nowStr,
-          approvalNotes: notes || 'Disetujui oleh departemen Retail & Part Services.'
+          approvedBy: approver,
+          approvedAt: nowIso,
+          approvalNotes: notes || claim.approvalNotes || 'Disetujui oleh Owner departemen Retail & Part Services.'
         };
         setDoc(doc(db, 'return_sales', claimId), cleanFirestoreData(updated)).catch(e => {
           handleFirestoreError(e, OperationType.UPDATE, `return_sales/${claimId}`);
@@ -880,6 +956,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         logout,
         approveUser,
         rejectUser,
+        deleteUser,
         items,
         addItemsToDatabase,
         updateQtyAktual,
@@ -891,6 +968,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         claims,
         submitClaimFromComplete,
         submitClaimDocs,
+        analyzeClaim,
         approveClaim,
         deleteClaim,
         clearShipmentsData,
