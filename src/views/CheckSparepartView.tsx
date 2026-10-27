@@ -63,10 +63,10 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
     }
     if (selectedStatusFilter === 'shortage') {
       const act = item.qtyAktual !== undefined ? item.qtyAktual : item.quantity;
-      if (act >= item.quantity) return false;
+      if (act === item.quantity) return false;
     } else if (selectedStatusFilter === 'match') {
       const act = item.qtyAktual !== undefined ? item.qtyAktual : item.quantity;
-      if (act < item.quantity) return false;
+      if (act !== item.quantity) return false;
     }
 
     if (materialSearch.trim()) {
@@ -265,7 +265,7 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
             title="Filter Berdasarkan Status Fisik Barang"
           >
             <option value="all">🔍 Semua Status Fisik</option>
-            <option value="shortage">⚠️ Ada Selisih (Shortage)</option>
+            <option value="shortage">⚠️ Ada Selisih (- / +)</option>
             <option value="match">✅ Kuantitas Sesuai</option>
           </select>
         </div>
@@ -316,14 +316,17 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
           ) : (
             displayItems.map((item) => {
               const actual = item.qtyAktual !== undefined ? item.qtyAktual : item.quantity;
-              const isShortage = actual < item.quantity;
-              const shortageQty = isShortage ? item.quantity - actual : 0;
+              const diffNum = actual - item.quantity;
+              const isShortage = diffNum < 0;
+              const isOverage = diffNum > 0;
+              const isDiscrepancy = isShortage || isOverage;
+              const diffAbs = Math.abs(diffNum);
 
               return (
                 <div 
                   key={item.id} 
                   className={`p-4 space-y-3 transition ${
-                    isShortage ? 'bg-amber-50/60' : item.isChecked ? 'bg-blue-50/30' : 'bg-white'
+                    isDiscrepancy ? 'bg-amber-50/60' : item.isChecked ? 'bg-blue-50/30' : 'bg-white'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -352,7 +355,12 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
                       {isShortage ? (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-300">
                           <AlertTriangle className="w-3 h-3" />
-                          Shortage
+                          Kurang (-)
+                        </span>
+                      ) : isOverage ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-300">
+                          <AlertTriangle className="w-3 h-3" />
+                          Lebih (+)
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
@@ -385,8 +393,8 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
                         value={actual}
                         onChange={(e) => handleQtyChange(item.id, e.target.value)}
                         className={`w-14 h-8 text-center font-mono font-black text-sm rounded-lg border outline-none ${
-                          isShortage
-                            ? 'border-red-400 bg-red-50 text-red-700'
+                          isDiscrepancy
+                            ? 'border-red-400 bg-red-50 text-red-700 font-bold'
                             : 'border-blue-400 bg-white text-blue-900'
                         }`}
                       />
@@ -403,7 +411,11 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
                       <span className="text-slate-400 block text-[10px] font-medium">Selisih:</span>
                       {isShortage ? (
                         <span className="font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded text-xs">
-                          -{shortageQty}
+                          -{diffAbs}
+                        </span>
+                      ) : isOverage ? (
+                        <span className="font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded text-xs">
+                          +{diffAbs}
                         </span>
                       ) : (
                         <span className="font-bold text-emerald-600 text-xs">0 (Pas)</span>
@@ -458,14 +470,17 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
               ) : (
                 displayItems.map((item) => {
                   const actual = item.qtyAktual !== undefined ? item.qtyAktual : item.quantity;
-                  const isShortage = actual < item.quantity;
-                  const shortageQty = isShortage ? item.quantity - actual : 0;
+                  const diffNum = actual - item.quantity;
+                  const isShortage = diffNum < 0;
+                  const isOverage = diffNum > 0;
+                  const isDiscrepancy = isShortage || isOverage;
+                  const diffAbs = Math.abs(diffNum);
 
                   return (
                     <tr
                       key={item.id}
                       className={`hover:bg-blue-50/30 transition ${
-                        isShortage ? 'bg-amber-50/40' : item.isChecked ? 'bg-blue-50/20' : ''
+                        isDiscrepancy ? 'bg-amber-50/40' : item.isChecked ? 'bg-blue-50/20' : ''
                       }`}
                     >
                       {/* Checkbox */}
@@ -504,8 +519,8 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
                             value={item.qtyAktual ?? item.quantity}
                             onChange={(e) => handleQtyChange(item.id, e.target.value)}
                             className={`w-20 px-2.5 py-1.5 text-center font-mono font-black text-sm rounded-lg border focus:ring-2 outline-none transition ${
-                              isShortage
-                                ? 'border-red-400 bg-red-50 text-red-700 focus:ring-red-400'
+                              isDiscrepancy
+                                ? 'border-red-400 bg-red-50 text-red-700 focus:ring-red-400 font-bold'
                                 : 'border-blue-400 bg-white text-blue-900 focus:ring-blue-500'
                             }`}
                           />
@@ -519,7 +534,11 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
                       <td className="py-2.5 px-3 text-center font-mono whitespace-nowrap font-bold">
                         {isShortage ? (
                           <span className="text-red-600 bg-red-100/80 px-2 py-0.5 rounded border border-red-300">
-                            -{shortageQty}
+                            -{diffAbs}
+                          </span>
+                        ) : isOverage ? (
+                          <span className="text-red-600 bg-red-100/80 px-2 py-0.5 rounded border border-red-300">
+                            +{diffAbs}
                           </span>
                         ) : (
                           <span className="text-emerald-600 font-semibold">0 (Pas)</span>
@@ -547,7 +566,12 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
                         {isShortage ? (
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-300">
                             <AlertTriangle className="w-3 h-3" />
-                            Auto-Claim Return
+                            Auto-Claim Return (-)
+                          </span>
+                        ) : isOverage ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-300">
+                            <AlertTriangle className="w-3 h-3" />
+                            Auto-Claim Return (+)
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">

@@ -369,7 +369,7 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
                     </div>
 
                     <span className="shrink-0 font-bold text-xs text-red-600 bg-red-100 px-2 py-0.5 rounded border border-red-300">
-                      -{claim.qtyShortage} {claim.uom}
+                      {claim.jenisClaim === 'Claim Lebih' || claim.qtyAktual > claim.qtySuratJalan ? `+${claim.qtyShortage}` : `-${claim.qtyShortage}`} {claim.uom}
                     </span>
                   </div>
 
@@ -542,7 +542,7 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
 
                       <td className="py-2.5 px-3 text-center font-bold whitespace-nowrap">
                         <span className="text-red-700 bg-red-100 px-2 py-0.5 rounded border border-red-300">
-                          -{claim.qtyShortage} {claim.uom}
+                          {claim.jenisClaim === 'Claim Lebih' || claim.qtyAktual > claim.qtySuratJalan ? `+${claim.qtyShortage}` : `-${claim.qtyShortage}`} {claim.uom}
                         </span>
                       </td>
 
@@ -852,9 +852,9 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block font-medium">Selisih Shortage:</span>
+                  <span className="text-slate-400 block font-medium">Selisih Fisik:</span>
                   <span className="font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded">
-                    -{activeModalClaim.qtyShortage} {activeModalClaim.uom}
+                    {activeModalClaim.jenisClaim === 'Claim Lebih' || activeModalClaim.qtyAktual > activeModalClaim.qtySuratJalan ? `+${activeModalClaim.qtyShortage}` : `-${activeModalClaim.qtyShortage}`} {activeModalClaim.uom}
                   </span>
                 </div>
               </div>

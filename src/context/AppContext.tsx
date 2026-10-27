@@ -577,8 +577,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setItems(prev => prev.map(item => {
       if (item.id === id) {
         const safeQty = Math.max(0, isNaN(qtyAktual) ? 0 : qtyAktual);
-        const hasDiscrepancy = safeQty < item.quantity;
-        const discrepancyQty = hasDiscrepancy ? item.quantity - safeQty : 0;
+        const hasDiscrepancy = safeQty !== item.quantity;
+        const discrepancyQty = Math.abs(safeQty - item.quantity);
         const updated = {
           ...item,
           qtyAktual: safeQty,
@@ -620,21 +620,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const submitCheckItems = (itemIds: string[]) => {
     const todayStr = new Date().toISOString().split('T')[0];
     const completedItemsList: SuratJalanItem[] = [];
-    const shortageItemsList: SuratJalanItem[] = [];
+    const discrepancyItemsList: SuratJalanItem[] = [];
     const newClaimsList: ReturnSalesClaim[] = [];
 
     setItems(prev => prev.map(item => {
       if (itemIds.includes(item.id)) {
         const actualQty = item.qtyAktual !== undefined ? item.qtyAktual : item.quantity;
         const isShortage = actualQty < item.quantity;
-        const diff = isShortage ? item.quantity - actualQty : 0;
+        const isOverage = actualQty > item.quantity;
+        const hasDiscrepancy = isShortage || isOverage;
+        const diff = Math.abs(actualQty - item.quantity);
 
         const updatedItem: SuratJalanItem = {
           ...item,
           status: 'completed',
           isChecked: true,
           qtyAktual: actualQty,
-          hasDiscrepancy: isShortage,
+          hasDiscrepancy,
           discrepancyQty: diff,
           checkedBy: currentUser?.displayName || 'Checker Gudang',
           completedDate: todayStr
@@ -647,9 +649,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           handleFirestoreError(e, OperationType.UPDATE, `shipments/${item.id}`);
         });
 
-        if (isShortage) {
-          shortageItemsList.push(updatedItem);
+        // Requirement 3: Item problem shortage (-) maupun overage (+) otomatis ter-create ke Return Sales
+        if (hasDiscrepancy) {
+          discrepancyItemsList.push(updatedItem);
 
+          const jenisClaim: JenisClaim = isOverage ? 'Claim Lebih' : 'Claim Kurang';
           const claimRecord: ReturnSalesClaim = {
             id: `CLM-${todayStr.replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`,
             shipmentItemId: item.id,
@@ -666,7 +670,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             plant: item.plant,
             documentDate: item.documentDate,
             status: 'opened',
-            jenisClaim: 'Claim Kurang',
+            jenisClaim,
+            penjelasanClaim: isOverage 
+              ? `Fisik diterima ${actualQty} ${item.handlingUnitUom}, melebihi Surat Jalan (${item.quantity} ${item.handlingUnitUom}) dengan selisih +${diff} ${item.handlingUnitUom}.`
+              : `Fisik diterima ${actualQty} ${item.handlingUnitUom}, kurang dari Surat Jalan (${item.quantity} ${item.handlingUnitUom}) dengan selisih -${diff} ${item.handlingUnitUom}.`,
             createdDate: todayStr,
             documents: {}
           };
@@ -686,7 +693,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setClaims(prev => [...newClaimsList, ...prev]);
     }
 
-    return { completedItems: completedItemsList, shortages: shortageItemsList };
+    return { completedItems: completedItemsList, shortages: discrepancyItemsList };
   };
 
   // Requirement 3: Owner & Master memiliki wewenang penuh menghapus data

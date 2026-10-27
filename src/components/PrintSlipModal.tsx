@@ -239,7 +239,7 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
       doc.setFontSize(7.5);
       doc.text('Petugas Checker Gudang', 40, y, { align: 'center' });
       doc.text('Ekspedisi / Pengemudi', 105, y, { align: 'center' });
-      doc.text('Kepala Bagian Part Services', 170, y, { align: 'center' });
+      doc.text('Part Head', 170, y, { align: 'center' });
 
       doc.line(25, y + 20, 55, y + 20);
       doc.line(90, y + 20, 120, y + 20);
@@ -247,7 +247,7 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
 
       doc.text(`(${data.checkerName || 'Checker'})`, 40, y + 24, { align: 'center' });
       doc.text('( ........................... )', 105, y + 24, { align: 'center' });
-      doc.text('( Budi Santoso )', 170, y + 24, { align: 'center' });
+      doc.text('( ........................... )', 170, y + 24, { align: 'center' });
 
       doc.save(`Berita_Acara_Rekonsiliasi_${data.nomorSuratJalan || 'SJ'}.pdf`);
     } catch (err) {
@@ -415,8 +415,11 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
             <tbody className="divide-y divide-slate-200">
               {items.map((item, idx) => {
                 const actual = item.qtyAktual ?? item.quantity;
-                const isProblem = actual < item.quantity;
-                const diff = isProblem ? item.quantity - actual : 0;
+                const diffNum = actual - item.quantity;
+                const isShortage = diffNum < 0;
+                const isOverage = diffNum > 0;
+                const isProblem = isShortage || isOverage;
+                const diffAbs = Math.abs(diffNum);
 
                 return (
                   <tr key={item.id} className={isProblem ? 'bg-red-50/70 font-medium' : ''}>
@@ -433,16 +436,20 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
                     <td className="py-2 px-3 border-r border-slate-200 text-center font-bold text-[#005BAC]">
                       {actual}
                     </td>
-                    <td className={`py-2 px-3 border-r border-slate-200 text-center font-bold ${diff > 0 ? 'text-red-600' : 'text-slate-400'}`}>
-                      {diff > 0 ? `-${diff}` : '0'}
+                    <td className={`py-2 px-3 border-r border-slate-200 text-center font-bold ${isProblem ? 'text-red-600' : 'text-slate-400'}`}>
+                      {isShortage ? `-${diffAbs}` : isOverage ? `+${diffAbs}` : '0'}
                     </td>
                     <td className="py-2 px-3 border-r border-slate-200 text-center text-slate-600">
                       {item.handlingUnitUom}
                     </td>
                     <td className="py-2 px-3 text-center">
-                      {isProblem ? (
+                      {isShortage ? (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-700 border border-red-300">
-                          Shortage
+                          Shortage (-)
+                        </span>
+                      ) : isOverage ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                          Lebih (+)
                         </span>
                       ) : (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-300">
@@ -462,7 +469,7 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
                 <td className="py-2 px-3 text-center border-r border-slate-300">{totalQtySuratJalan}</td>
                 <td className="py-2 px-3 text-center border-r border-slate-300 text-[#005BAC]">{totalQtyAktual}</td>
                 <td className={`py-2 px-3 text-center border-r border-slate-300 ${totalShortage > 0 ? 'text-red-600' : ''}`}>
-                  {totalShortage > 0 ? `-${totalShortage}` : 0}
+                  {totalShortage > 0 ? `±${totalShortage}` : 0}
                 </td>
                 <td colSpan={2} className="py-2 px-3 text-center text-slate-500">
                   {items.length} Macam Part
@@ -486,10 +493,10 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
               <p className="text-[10px] text-slate-400">Driver / Transporter</p>
             </div>
             <div className="border border-slate-200 p-3 rounded-xl">
-              <p className="text-slate-500 mb-12">Kepala Bagian Part Services</p>
+              <p className="text-slate-500 mb-12">Part Head</p>
               <div className="w-3/4 mx-auto border-b border-slate-400 mb-1"></div>
-              <p className="font-semibold text-slate-900">Budi Santoso</p>
-              <p className="text-[10px] text-slate-400">Retail & Part Services Head</p>
+              <p className="font-semibold text-slate-900">( ........................................ )</p>
+              <p className="text-[10px] text-slate-400">Part Head</p>
             </div>
           </div>
 

@@ -11,7 +11,6 @@ import {
   FileSpreadsheet, 
   Search, 
   Calendar, 
-  Printer, 
   Trash2, 
   Edit3, 
   Check, 
@@ -31,7 +30,6 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
     items, 
     deleteItem, 
     editItemDetails, 
-    setActivePrintData, 
     currentUser, 
     canAccessItem,
     submitClaimFromComplete 
@@ -114,8 +112,8 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
   };
 
   const handleSaveEdit = (id: string, originalQuantity: number) => {
-    const isProblem = editQtyAktual < originalQuantity;
-    const diff = isProblem ? originalQuantity - editQtyAktual : 0;
+    const isProblem = editQtyAktual !== originalQuantity;
+    const diff = Math.abs(editQtyAktual - originalQuantity);
     const res = editItemDetails(id, {
       qtyAktual: editQtyAktual,
       hasDiscrepancy: isProblem,
@@ -129,24 +127,11 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
     }
   };
 
-  const handleReprintSlip = (targetItem: SuratJalanItem) => {
-    const shipmentGroup = items.filter(
-      i => i.nomorSuratJalan === targetItem.nomorSuratJalan && i.status === 'completed'
-    );
-    setActivePrintData({
-      title: `Berita Acara Rekonsiliasi - SJ ${targetItem.nomorSuratJalan}`,
-      items: shipmentGroup.length > 0 ? shipmentGroup : [targetItem],
-      nomorSuratJalan: targetItem.nomorSuratJalan,
-      customerName: targetItem.name,
-      completedDate: targetItem.completedDate || new Date().toISOString().split('T')[0],
-      checkerName: targetItem.checkedBy || 'Checker Gudang'
-    });
-  };
-
   // Requirement 4: Open Form Claim Popup
   const handleOpenClaimModal = (item: SuratJalanItem) => {
     setClaimModalItem(item);
-    setJenisClaim('Claim Kurang');
+    const act = item.qtyAktual ?? item.quantity;
+    setJenisClaim(act > item.quantity ? 'Claim Lebih' : 'Claim Kurang');
     setPenjelasanClaim(item.notes || '');
     setFotoSuratJalanUrl('');
     setFotoSuratJalanName('');
@@ -385,8 +370,12 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
             </div>
           ) : (
             filteredItems.map((item) => {
-              const isProblem = item.hasDiscrepancy || (item.qtyAktual !== undefined && item.qtyAktual < item.quantity);
-              const isEditing = editingId === item.id;
+              const actual = item.qtyAktual !== undefined ? item.qtyAktual : item.quantity;
+              const diffNum = actual - item.quantity;
+              const isShortage = diffNum < 0;
+              const isOverage = diffNum > 0;
+              const isProblem = item.hasDiscrepancy || isShortage || isOverage;
+              const diffAbs = Math.abs(diffNum);
 
               return (
                 <div 
@@ -404,7 +393,7 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                         {isProblem ? (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-red-600 text-white">
                             <AlertTriangle className="w-3 h-3 text-white" />
-                            PROBLEM
+                            PROBLEM {diffNum < 0 ? '(-)' : '(+)'}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
@@ -423,14 +412,6 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                         Tgl Selesai: {item.completedDate || '-'}
                       </div>
                     </div>
-
-                    <button
-                      onClick={() => handleReprintSlip(item)}
-                      title="Cetak Berita Acara"
-                      className="p-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition"
-                    >
-                      <Printer className="w-4 h-4" />
-                    </button>
                   </div>
 
                   <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
@@ -441,14 +422,14 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                     <div>
                       <span className="text-slate-400 block text-[10px]">Qty Aktual:</span>
                       <span className={isProblem ? 'font-black text-red-600' : 'font-bold text-slate-800'}>
-                        {item.qtyAktual ?? item.quantity} {item.handlingUnitUom}
+                        {actual} {item.handlingUnitUom}
                       </span>
                     </div>
                     <div>
                       <span className="text-slate-400 block text-[10px]">Selisih:</span>
                       {isProblem ? (
                         <span className="font-black text-red-600 bg-red-100 px-1.5 py-0.5 rounded">
-                          -{item.discrepancyQty || item.quantity - (item.qtyAktual ?? 0)}
+                          {diffNum < 0 ? `-${diffAbs}` : `+${diffAbs}`}
                         </span>
                       ) : (
                         <span className="font-bold text-emerald-600">0</span>
@@ -489,7 +470,7 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                 <th className="py-3 px-3">UoM</th>
                 <th className="py-3 px-3">Customer / Cabang</th>
                 <th className="py-3 px-3 text-center">Field Claim Proses</th>
-                <th className="py-3 px-3 text-center">Aksi Dokumen</th>
+                <th className="py-3 px-3 text-center">{isOwnerOrMaster ? 'Aksi Data' : ''}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-slate-700">
@@ -501,7 +482,12 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                 </tr>
               ) : (
                 filteredItems.map((item) => {
-                  const isProblem = item.hasDiscrepancy || (item.qtyAktual !== undefined && item.qtyAktual < item.quantity);
+                  const actual = item.qtyAktual !== undefined ? item.qtyAktual : item.quantity;
+                  const diffNum = actual - item.quantity;
+                  const isShortage = diffNum < 0;
+                  const isOverage = diffNum > 0;
+                  const isProblem = item.hasDiscrepancy || isShortage || isOverage;
+                  const diffAbs = Math.abs(diffNum);
                   const isEditing = editingId === item.id;
 
                   return (
@@ -518,7 +504,7 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                         {isProblem ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-red-600 text-white shadow-xs">
                             <AlertTriangle className="w-3 h-3 text-white" />
-                            ITEM PROBLEM
+                            ITEM PROBLEM {diffNum < 0 ? '(-)' : '(+)'}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
@@ -563,7 +549,7 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                           />
                         ) : (
                           <span className={isProblem ? 'text-red-700 text-sm font-black' : 'text-slate-800'}>
-                            {item.qtyAktual ?? item.quantity}
+                            {actual}
                           </span>
                         )}
                       </td>
@@ -571,7 +557,7 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                       <td className="py-2.5 px-3 text-center font-mono font-bold whitespace-nowrap">
                         {isProblem ? (
                           <span className="text-red-700 bg-red-200/80 px-2 py-0.5 rounded border border-red-400">
-                            -{item.discrepancyQty || item.quantity - (item.qtyAktual ?? 0)}
+                            {diffNum < 0 ? `-${diffAbs}` : `+${diffAbs}`}
                           </span>
                         ) : (
                           <span className="text-emerald-700">0</span>
@@ -621,39 +607,29 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                                 <X className="w-4 h-4" />
                               </button>
                             </>
-                          ) : (
+                          ) : isOwnerOrMaster ? (
                             <>
                               <button
-                                onClick={() => handleReprintSlip(item)}
-                                title="Cetak Berita Acara Rekonsiliasi"
-                                className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition"
+                                onClick={() => handleStartEdit(item)}
+                                title="Edit Data (Owner/Master)"
+                                className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition"
                               >
-                                <Printer className="w-4 h-4" />
+                                <Edit3 className="w-4 h-4" />
                               </button>
-
-                              {(currentUser?.role === 'master' || currentUser?.role === 'owner') && (
-                                <>
-                                  <button
-                                    onClick={() => handleStartEdit(item)}
-                                    title="Edit Data (Owner/Master)"
-                                    className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition"
-                                  >
-                                    <Edit3 className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      if (confirm(`Hapus item ${item.material}?`)) {
-                                        deleteItem(item.id);
-                                      }
-                                    }}
-                                    title="Hapus Data (Owner/Master)"
-                                    className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                </>
-                              )}
+                              <button
+                                onClick={() => {
+                                  if (confirm(`Hapus item ${item.material}?`)) {
+                                    deleteItem(item.id);
+                                  }
+                                }}
+                                title="Hapus Data (Owner/Master)"
+                                className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
                             </>
+                          ) : (
+                            <span className="text-[11px] text-slate-300">-</span>
                           )}
                         </div>
                       </td>
