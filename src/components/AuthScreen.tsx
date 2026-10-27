@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Check
 } from 'lucide-react';
+import { AstraIsuzuLogo } from './AstraIsuzuLogo';
 
 export const AuthScreen: React.FC = () => {
   const { login, register, allUsers } = useApp();
@@ -106,11 +107,7 @@ export const AuthScreen: React.FC = () => {
           {/* Logo & Header Section (Requirement 1 & 3: Logo Terlampir & TP-SYNCS branding) */}
           <div className="p-8 text-center border-b border-slate-100 bg-linear-to-b from-slate-50/80 to-white">
             <div className="flex justify-center mb-5">
-              <img
-                src="/public/assets/aistudio/Astra_Isuzu_Logo_Vector.svg__220102f2.png"
-                alt="Astra Isuzu"
-                className="h-13 sm:h-14 w-auto object-contain"
-              />
+              <AstraIsuzuLogo className="h-13 sm:h-14 w-auto object-contain" />
             </div>
 
             <div className="space-y-0.5">

@@ -21,6 +21,7 @@ import {
   Menu,
   X
 } from 'lucide-react';
+import { AstraIsuzuLogo } from './AstraIsuzuLogo';
 
 interface NavbarProps {
   activeMenu: string;
@@ -66,11 +67,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeMenu, onSelectMenu, onOpen
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Logo & Corporate Tagline - Requirement 1: TP-SYNCS with Third Party Synchronize System */}
           <div className="flex items-center gap-2 sm:gap-4 cursor-pointer" onClick={() => onSelectMenu('dashboard')}>
-            <img
-              src="/public/assets/aistudio/Astra_Isuzu_Logo_Vector.svg__220102f2.png"
-              alt="Astra Isuzu"
-              className="h-8 sm:h-11 w-auto object-contain shrink-0"
-            />
+            <AstraIsuzuLogo className="h-8 sm:h-11 w-auto object-contain shrink-0" />
             <div className="border-l pl-2 sm:pl-3.5 border-slate-200">
               <span className="text-sm sm:text-base font-black uppercase tracking-tight text-slate-900 block leading-none">
                 TP-SYNCS

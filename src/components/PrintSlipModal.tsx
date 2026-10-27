@@ -8,6 +8,8 @@ import { Printer, X, CheckCircle2, AlertTriangle, FileSpreadsheet, Download, Fil
 import { SuratJalanItem } from '../types';
 import { exportSuratJalanToExcel } from '../utils/excel';
 import { jsPDF } from 'jspdf';
+import { AstraIsuzuLogo } from './AstraIsuzuLogo';
+import { ASTRA_ISUZU_LOGO_DATA_URI } from '../assets/logoDataUri';
 
 interface PrintSlipModalProps {
   isOpen: boolean;
@@ -119,20 +121,26 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
         format: 'a4'
       });
 
-      // Header Astra Isuzu
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(14);
-      doc.setTextColor(0, 91, 172); // Astra Blue
-      doc.text('PT ASTRA INTERNATIONAL TBK - ISUZU', 15, 18);
+      // Header Astra Isuzu with official logo
+      try {
+        doc.addImage(ASTRA_ISUZU_LOGO_DATA_URI, 'PNG', 15, 9, 38, 9);
+      } catch (err) {
+        console.warn('PDF logo drawing fallback:', err);
+      }
 
-      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(0, 91, 172); // Astra Blue
+      doc.text('PT ASTRA INTERNATIONAL TBK - ISUZU', 58, 15);
+
+      doc.setFontSize(8);
       doc.setTextColor(100, 116, 139);
-      doc.text('DEPARTEMEN RETAIL & PART SERVICES • LOGISTIC & RECONCILIATION', 15, 23);
-      doc.text('Jl. Danau Sunter Utara Blok O3 Kav. 30, Sunter II, Jakarta Utara 14350', 15, 27);
+      doc.text('DEPARTEMEN RETAIL & PART SERVICES • LOGISTIC & RECONCILIATION', 58, 19);
+      doc.text('Jl. Danau Sunter Utara Blok O3 Kav. 30, Sunter II, Jakarta Utara 14350', 58, 23);
 
       doc.setDrawColor(30, 41, 59);
       doc.setLineWidth(0.6);
-      doc.line(15, 30, 195, 30);
+      doc.line(15, 27, 195, 27);
 
       // Title
       doc.setFontSize(11);
@@ -289,11 +297,7 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
           {/* Header Astra Isuzu */}
           <div className="flex items-start justify-between border-b-2 border-slate-800 pb-5 mb-5">
             <div className="flex items-center gap-4">
-              <img
-                src="/public/assets/aistudio/Astra_Isuzu_Logo_Vector.svg__220102f2.png"
-                alt="Astra Isuzu"
-                className="h-12 object-contain"
-              />
+              <AstraIsuzuLogo className="h-12 w-auto object-contain" />
               <div className="border-l pl-4 border-slate-300">
                 <h1 className="text-xl font-black tracking-tight text-slate-900 uppercase">
                   PT Astra International Tbk - Isuzu

@@ -8,6 +8,7 @@ import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { AuthScreen } from './components/AuthScreen';
 import { PrintSlipModal } from './components/PrintSlipModal';
+import { AstraIsuzuLogo } from './components/AstraIsuzuLogo';
 
 import { DashboardView } from './views/DashboardView';
 import { UploadDataView } from './views/UploadDataView';
@@ -51,11 +52,7 @@ function AppContent() {
       <footer className="bg-white border-t border-slate-200 py-6 text-xs text-slate-500 no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <img
-              src="/public/assets/aistudio/Astra_Isuzu_Logo_Vector.svg__220102f2.png"
-              alt="Astra Isuzu"
-              className="h-6 w-auto object-contain opacity-80"
-            />
+            <AstraIsuzuLogo className="h-6 w-auto object-contain opacity-80" />
             <span>
               © {new Date().getFullYear()} PT Astra International Tbk - Isuzu. Departemen Retail & Part Services.
             </span>
