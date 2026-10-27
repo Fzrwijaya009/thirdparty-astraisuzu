@@ -7,6 +7,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
   UserProfile, 
   UserRole, 
+  UserStatus,
   SuratJalanItem, 
   ReturnSalesClaim, 
   ClaimDocuments,
@@ -17,13 +18,13 @@ import {
   collection, 
   doc, 
   setDoc, 
-  getDoc,
+  getDoc, 
   getDocs, 
   updateDoc, 
-  deleteDoc,
-  onSnapshot,
-  query,
-  where
+  deleteDoc, 
+  onSnapshot, 
+  query, 
+  where 
 } from 'firebase/firestore';
 
 interface AppContextType {
@@ -84,15 +85,32 @@ interface AppContextType {
   setActivePrintData: (data: any) => void;
 }
 
-const STORAGE_USERS_KEY = 'astra_isuzu_users_v4_cloud';
-const STORAGE_ITEMS_KEY = 'astra_isuzu_items_v4_cloud';
-const STORAGE_CLAIMS_KEY = 'astra_isuzu_claims_v4_cloud';
-const STORAGE_AUTH_KEY = 'astra_isuzu_auth_v4_cloud';
-const STORAGE_PASSWORDS_KEY = 'astra_isuzu_pwds_v4_cloud';
+const STORAGE_USERS_KEY = 'astra_isuzu_users_v5_cloud';
+const STORAGE_ITEMS_KEY = 'astra_isuzu_items_v5_cloud';
+const STORAGE_CLAIMS_KEY = 'astra_isuzu_claims_v5_cloud';
+const STORAGE_AUTH_KEY = 'astra_isuzu_auth_v5_cloud';
+const STORAGE_PASSWORDS_KEY = 'astra_isuzu_pwds_v5_cloud';
 
 // Helper to create deterministic, safe doc IDs for user accounts
 function makeUserDocId(email: string): string {
   return 'usr_' + email.trim().toLowerCase().replace(/[^a-zA-Z0-9]/g, '_');
+}
+
+// CRITICAL: Firestore rejects objects containing 'undefined' as a value.
+// This utility recursively cleans any undefined properties so Firestore writes never fail.
+function cleanFirestoreData<T extends Record<string, any>>(obj: T): any {
+  if (obj === null || obj === undefined) return null;
+  const result: any = {};
+  for (const [key, val] of Object.entries(obj)) {
+    if (val !== undefined) {
+      if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+        result[key] = cleanFirestoreData(val);
+      } else {
+        result[key] = val;
+      }
+    }
+  }
+  return result;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -207,7 +225,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         setAllUsers(loaded);
 
-        // If current user is logged in, refresh their status in real-time (e.g. when approved)
+        // If current user is logged in, refresh their status in real-time (e.g. when approved by Master)
         if (currentUser) {
           const fresh = loaded.find(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
           if (fresh && (fresh.status !== currentUser.status || fresh.role !== currentUser.role)) {
@@ -263,13 +281,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => unsubscribe();
   }, []);
 
-  // Multi-tenancy isolation check for Admin
+  // Multi-tenancy isolation check for Admin:
+  // Requirement 3: Otorisasi Owner sama seperti Master System (bisa akses semua customer),
+  // sedangkan Admin hanya dibatasi ke customer yang didaftarkannya.
   const canAccessItem = (itemCustomerName: string): boolean => {
     if (!currentUser) return false;
-    // Master System and Owner can see all companies/customers
+    // Master System dan Owner dapat melihat seluruh data semua customer / cabang
     if (currentUser.role === 'master' || currentUser.role === 'owner') return true;
 
-    // Admin can ONLY see items matching their registered "Nama Customer"
+    // Admin hanya dapat melihat data sesuai "Nama Customer" yang terdaftar
     const userCust = (currentUser.customerName || '').trim().toLowerCase();
     const itemCust = (itemCustomerName || '').trim().toLowerCase();
     if (!userCust) return false;
@@ -303,11 +323,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Continue
     }
 
-    // Role rules:
-    // If user selects Master System or email is fajrisani12@gmail.com, auto-approve
-    const isMaster = data.role === 'master' || trimmedEmail === 'fajrisani12@gmail.com';
-    const effectiveRole: UserRole = isMaster ? 'master' : data.role;
-    const effectiveStatus = isMaster ? 'approved' : 'pending';
+    // Requirement 1: Daftar akun Master System TIDAK DIPERKENANKAN untuk user gmail siapapun.
+    // Master System HANYA ADA SATU akun dengan email fajrisani12@gmail.com
+    const isMaster = trimmedEmail === 'fajrisani12@gmail.com';
+    // User lain yang mendaftar secara ketat dipaksa menjadi 'owner' atau 'admin', tidak bisa 'master'
+    const effectiveRole: UserRole = isMaster ? 'master' : (data.role === 'admin' ? 'admin' : 'owner');
+    const effectiveStatus: UserStatus = isMaster ? 'approved' : 'pending';
 
     const newUser: UserProfile = {
       uid: docId,
@@ -317,22 +338,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       customerName: data.customerName.trim() || (isMaster ? 'PT Astra International Tbk - Isuzu (Head Office)' : 'Customer Astra Isuzu'),
       status: effectiveStatus,
       createdAt: new Date().toISOString(),
-      approvedAt: isMaster ? new Date().toISOString() : undefined,
-      approvedBy: isMaster ? 'SYSTEM_BOOTSTRAP' : undefined,
-      password: data.password // Stored in Firestore so any device / browser can verify
+      password: data.password // Stored in Firestore so any device / browser can authenticate
     };
+
+    if (isMaster) {
+      newUser.approvedAt = new Date().toISOString();
+      newUser.approvedBy = 'SYSTEM_BOOTSTRAP';
+    }
 
     // Save locally
     setUserPasswords(prev => ({ ...prev, [trimmedEmail]: data.password }));
 
-    // Save to Firestore so it instantly appears on all browsers and devices
+    // Clean any undefined properties before writing to Firestore to prevent SDK error
+    const firestoreData = cleanFirestoreData(newUser);
+
     try {
-      await setDoc(doc(db, 'users', docId), newUser);
+      await setDoc(doc(db, 'users', docId), firestoreData);
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, `users/${docId}`);
+      console.error('Registration Firestore write error:', err);
       return { 
         success: false, 
-        message: 'Gagal menghubungkan ke Firebase Firestore. Periksa koneksi internet Anda.' 
+        message: 'Gagal menyimpan pendaftaran ke Firebase Firestore. Silakan coba sesaat lagi.' 
       };
     }
 
@@ -342,7 +369,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentUser(newUser);
       return {
         success: true,
-        message: `Pendaftaran berhasil! Akun Anda langsung aktif sebagai ${newUser.role === 'master' ? 'Master System' : newUser.role.toUpperCase()}.`
+        message: `Pendaftaran berhasil! Akun Anda aktif sebagai ${newUser.role === 'master' ? 'Master System' : newUser.role.toUpperCase()}.`
       };
     } else {
       return {
@@ -395,7 +422,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
 
       try {
-        await setDoc(doc(db, 'users', docId), masterUser);
+        await setDoc(doc(db, 'users', docId), cleanFirestoreData(masterUser));
         user = masterUser;
       } catch (e) {
         console.error('Failed to auto-seed master user to Firestore:', e);
@@ -445,9 +472,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentUser(null);
   };
 
+  // Requirement 3: Approval akun baru HANYA ada di otorisasi Master System
   const approveUser = async (uid: string) => {
     if (currentUser?.role !== 'master') {
-      alert('Hanya Master System yang dapat menyetujui akun.');
+      alert('Akses Ditolak: Hanya akun Master System (fajrisani12@gmail.com) yang berwenang menyetujui akun baru.');
       return;
     }
     const nowStr = new Date().toISOString();
@@ -474,7 +502,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const rejectUser = async (uid: string) => {
     if (currentUser?.role !== 'master') {
-      alert('Hanya Master System yang dapat menolak akun.');
+      alert('Akses Ditolak: Hanya akun Master System (fajrisani12@gmail.com) yang berwenang menolak akun.');
       return;
     }
     try {
@@ -488,6 +516,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Shipments: Add items to database from preview staging
+  // Requirement 3: Owner & Master memiliki wewenang upload Surat Jalan
   const addItemsToDatabase = async (newItems: SuratJalanItem[]) => {
     // Set status to 'checking'
     const readyItems = newItems.map(item => ({
@@ -498,7 +527,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Save each row to Firestore so all connected devices see it immediately
     for (const item of readyItems) {
       try {
-        await setDoc(doc(db, 'shipments', item.id), item);
+        await setDoc(doc(db, 'shipments', item.id), cleanFirestoreData(item));
       } catch (e) {
         handleFirestoreError(e, OperationType.CREATE, `shipments/${item.id}`);
       }
@@ -520,7 +549,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           discrepancyQty
         };
         // Background sync to Firestore
-        setDoc(doc(db, 'shipments', id), updated).catch(() => {});
+        setDoc(doc(db, 'shipments', id), cleanFirestoreData(updated)).catch(() => {});
         return updated;
       }
       return item;
@@ -531,7 +560,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setItems(prev => prev.map(item => {
       if (item.id === id) {
         const updated = { ...item, isChecked: checked !== undefined ? checked : !item.isChecked };
-        setDoc(doc(db, 'shipments', id), updated).catch(() => {});
+        setDoc(doc(db, 'shipments', id), cleanFirestoreData(updated)).catch(() => {});
         return updated;
       }
       return item;
@@ -546,7 +575,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return item;
       }
       const updated = { ...item, isChecked: checked };
-      setDoc(doc(db, 'shipments', item.id), updated).catch(() => {});
+      setDoc(doc(db, 'shipments', item.id), cleanFirestoreData(updated)).catch(() => {});
       return updated;
     }));
   };
@@ -577,7 +606,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         completedItemsList.push(updatedItem);
 
         // Firestore sync for shipment item
-        setDoc(doc(db, 'shipments', item.id), updatedItem).catch(e => {
+        setDoc(doc(db, 'shipments', item.id), cleanFirestoreData(updatedItem)).catch(e => {
           handleFirestoreError(e, OperationType.UPDATE, `shipments/${item.id}`);
         });
 
@@ -606,7 +635,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
           newClaimsList.push(claimRecord);
 
-          setDoc(doc(db, 'return_sales', claimRecord.id), claimRecord).catch(e => {
+          setDoc(doc(db, 'return_sales', claimRecord.id), cleanFirestoreData(claimRecord)).catch(e => {
             handleFirestoreError(e, OperationType.CREATE, `return_sales/${claimRecord.id}`);
           });
         }
@@ -623,6 +652,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { completedItems: completedItemsList, shortages: shortageItemsList };
   };
 
+  // Requirement 3: Owner & Master memiliki wewenang penuh menghapus data
   const deleteItem = (id: string): { success: boolean; message?: string } => {
     const item = items.find(i => i.id === id);
     if (!item) return { success: false, message: 'Item tidak ditemukan.' };
@@ -642,6 +672,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true };
   };
 
+  // Requirement 3: Owner & Master memiliki wewenang penuh mengubah data
   const editItemDetails = (id: string, updates: Partial<SuratJalanItem>): { success: boolean; message?: string } => {
     const item = items.find(i => i.id === id);
     if (!item) return { success: false, message: 'Item tidak ditemukan.' };
@@ -654,7 +685,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const updated = { ...item, ...updates };
-    setDoc(doc(db, 'shipments', id), updated).catch(e => {
+    setDoc(doc(db, 'shipments', id), cleanFirestoreData(updated)).catch(e => {
       handleFirestoreError(e, OperationType.UPDATE, `shipments/${id}`);
     });
 
@@ -686,7 +717,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       discrepancyQty: diff
     };
 
-    setDoc(doc(db, 'shipments', targetItem.id), updatedItem).catch(e => {
+    setDoc(doc(db, 'shipments', targetItem.id), cleanFirestoreData(updatedItem)).catch(e => {
       handleFirestoreError(e, OperationType.UPDATE, `shipments/${targetItem.id}`);
     });
 
@@ -722,7 +753,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
 
-    setDoc(doc(db, 'return_sales', claimId), newClaim).catch(e => {
+    setDoc(doc(db, 'return_sales', claimId), cleanFirestoreData(newClaim)).catch(e => {
       handleFirestoreError(e, OperationType.WRITE, `return_sales/${claimId}`);
     });
 
@@ -749,7 +780,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           submittedDate: nowStr,
           documents: { ...claim.documents, ...docs }
         };
-        setDoc(doc(db, 'return_sales', claimId), updated).catch(e => {
+        setDoc(doc(db, 'return_sales', claimId), cleanFirestoreData(updated)).catch(e => {
           handleFirestoreError(e, OperationType.UPDATE, `return_sales/${claimId}`);
         });
         return updated;
@@ -758,6 +789,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
   };
 
+  // Requirement 3: Approval klaim dapat dilakukan oleh Owner maupun Master System
   const approveClaim = (claimId: string, notes?: string): { success: boolean; message?: string } => {
     if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'master')) {
       return {
@@ -772,11 +804,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const updated = {
           ...claim,
           status: 'completed' as const,
-          approvedBy: currentUser.displayName || currentUser.role.toUpperCase(),
+          approvedBy: currentUser.displayName || (currentUser.role === 'owner' ? 'Owner Part Services' : 'Master System'),
           approvedAt: nowStr,
-          approvalNotes: notes || 'Disetujui oleh Owner departemen Retail & Part Services.'
+          approvalNotes: notes || 'Disetujui oleh departemen Retail & Part Services.'
         };
-        setDoc(doc(db, 'return_sales', claimId), updated).catch(e => {
+        setDoc(doc(db, 'return_sales', claimId), cleanFirestoreData(updated)).catch(e => {
           handleFirestoreError(e, OperationType.UPDATE, `return_sales/${claimId}`);
         });
         return updated;
@@ -787,6 +819,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true };
   };
 
+  // Requirement 3: Owner & Master memiliki wewenang menghapus klaim
   const deleteClaim = (claimId: string): { success: boolean; message?: string } => {
     if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'master')) {
       return { success: false, message: 'Akses Ditolak: Hanya Owner dan Master System yang dapat menghapus klaim.' };
@@ -798,7 +831,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true };
   };
 
-  // Requirement 4: Features to clean/delete all data in Pengaturan System
+  // Requirement 3 & 4: Master System dan Owner berwenang membersihkan / reset data
   const clearShipmentsData = async () => {
     if (currentUser?.role !== 'owner' && currentUser?.role !== 'master') {
       alert('Hanya Master System dan Owner yang berwenang membersihkan data.');

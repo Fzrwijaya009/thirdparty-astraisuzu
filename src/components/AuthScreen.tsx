@@ -31,22 +31,26 @@ export const AuthScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [role, setRole] = useState<UserRole>('master');
+  const [role, setRole] = useState<UserRole>('owner');
   const [customerName, setCustomerName] = useState('PT Astra International Tbk - Isuzu');
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Auto detect fajrisani12@gmail.com
+  const isMasterCandidate = email.trim().toLowerCase() === 'fajrisani12@gmail.com';
+
+  // Master System is exclusively reserved for fajrisani12@gmail.com
   useEffect(() => {
-    if (email.trim().toLowerCase() === 'fajrisani12@gmail.com') {
+    if (isMasterCandidate) {
       setRole('master');
       if (!customerName || customerName === 'PT Astra International Tbk - Isuzu') {
         setCustomerName('PT Astra International Tbk - Isuzu (Head Office)');
       }
+    } else if (role === 'master') {
+      setRole('owner');
     }
-  }, [email]);
+  }, [email, isMasterCandidate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,25 +192,37 @@ export const AuthScreen: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Dropdown Tingkat Otorisasi */}
+                  {/* Dropdown Tingkat Otorisasi (Hanya Owner & Admin untuk pendaftaran umum) */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1">
                       Tingkat Otorisasi (Role) *
                     </label>
-                    <select
-                      value={role}
-                      onChange={(e) => setRole(e.target.value as UserRole)}
-                      className="w-full px-3 py-2 text-xs font-bold border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-800"
-                    >
-                      <option value="master">Master System (Full Akses & Approval Akun)</option>
-                      <option value="owner">Owner (Upload Surat Jalan & Approval Klaim)</option>
-                      <option value="admin">Admin (Checker Gudang / Input Selisih Part)</option>
-                    </select>
-                    <p className="text-[11px] text-slate-500 mt-1 leading-tight">
-                      {role === 'master' && '• Akses penuh seluruh data, menu pengawasan & persetujuan akun baru.'}
-                      {role === 'owner' && '• Akses upload Surat Jalan, verifikasi fisik, & approval klaim Return Sales.'}
-                      {role === 'admin' && '• Hanya dapat melihat & memproses data transaksi perusahaan terdaftar.'}
-                    </p>
+                    {isMasterCandidate ? (
+                      <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-xs flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-purple-900 block">Master System (Otoritas Tunggal)</span>
+                          <span className="text-[11px] text-purple-700">Khusus akun utama fajrisani12@gmail.com</span>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-purple-600 text-white uppercase tracking-wider">
+                          Master
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        <select
+                          value={role}
+                          onChange={(e) => setRole(e.target.value as UserRole)}
+                          className="w-full px-3 py-2 text-xs font-bold border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white text-slate-800"
+                        >
+                          <option value="owner">Owner (Full Akses Data, Upload Surat Jalan & Approval Klaim)</option>
+                          <option value="admin">Admin (Checker Gudang / Input Qty Fisik Perusahaan Anda)</option>
+                        </select>
+                        <p className="text-[11px] text-slate-500 mt-1 leading-tight">
+                          {role === 'owner' && '• Otorisasi Owner: Hak akses data setara Master System (Upload SJ, Full Data, Approval Klaim), kecuali Approval Akun Baru.'}
+                          {role === 'admin' && '• Otorisasi Admin: Pemeriksaan fisik part & pelaporan selisih khusus perusahaan Anda terdaftar.'}
+                        </p>
+                      </>
+                    )}
                   </div>
 
                   {/* Nama Customer / Perusahaan (Free text) */}
