@@ -12,14 +12,18 @@ import {
   ClaimDocuments,
   JenisClaim
 } from '../types';
-import { db, auth, handleFirestoreError, OperationType } from '../services/firebase';
+import { db, handleFirestoreError, OperationType } from '../services/firebase';
 import { 
   collection, 
   doc, 
   setDoc, 
+  getDoc,
   getDocs, 
   updateDoc, 
-  deleteDoc 
+  deleteDoc,
+  onSnapshot,
+  query,
+  where
 } from 'firebase/firestore';
 
 interface AppContextType {
@@ -35,12 +39,12 @@ interface AppContextType {
     customerName: string;
   }) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
-  approveUser: (uid: string) => void;
-  rejectUser: (uid: string) => void;
+  approveUser: (uid: string) => Promise<void>;
+  rejectUser: (uid: string) => Promise<void>;
 
   // Shipments / Surat Jalan
   items: SuratJalanItem[];
-  addItemsToDatabase: (newItems: SuratJalanItem[]) => void;
+  addItemsToDatabase: (newItems: SuratJalanItem[]) => Promise<void>;
   updateQtyAktual: (id: string, qtyAktual: number) => void;
   toggleItemCheck: (id: string, checked?: boolean) => void;
   toggleAllChecks: (checked: boolean, filterMaterial?: string) => void;
@@ -80,28 +84,21 @@ interface AppContextType {
   setActivePrintData: (data: any) => void;
 }
 
-const STORAGE_USERS_KEY = 'astra_isuzu_users_v3_clean';
-const STORAGE_ITEMS_KEY = 'astra_isuzu_items_v3_clean';
-const STORAGE_CLAIMS_KEY = 'astra_isuzu_claims_v3_clean';
-const STORAGE_AUTH_KEY = 'astra_isuzu_auth_v3_clean';
-const STORAGE_PASSWORDS_KEY = 'astra_isuzu_pwds_v3_clean';
+const STORAGE_USERS_KEY = 'astra_isuzu_users_v4_cloud';
+const STORAGE_ITEMS_KEY = 'astra_isuzu_items_v4_cloud';
+const STORAGE_CLAIMS_KEY = 'astra_isuzu_claims_v4_cloud';
+const STORAGE_AUTH_KEY = 'astra_isuzu_auth_v4_cloud';
+const STORAGE_PASSWORDS_KEY = 'astra_isuzu_pwds_v4_cloud';
+
+// Helper to create deterministic, safe doc IDs for user accounts
+function makeUserDocId(email: string): string {
+  return 'usr_' + email.trim().toLowerCase().replace(/[^a-zA-Z0-9]/g, '_');
+}
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Clear any old mock demo keys from previous test runs so database starts completely clean
-  useEffect(() => {
-    try {
-      localStorage.removeItem('astra_isuzu_users_v2');
-      localStorage.removeItem('astra_isuzu_items_v2');
-      localStorage.removeItem('astra_isuzu_claims_v2');
-      localStorage.removeItem('astra_isuzu_auth_user_v2');
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  // Password store for email/password authentication
+  // Password store for fallback / local cache
   const [userPasswords, setUserPasswords] = useState<Record<string, string>>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_PASSWORDS_KEY);
@@ -111,7 +108,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
-  // Clean initial states (empty, no demo records)
+  // State for all users loaded from Firestore in real time
   const [allUsers, setAllUsers] = useState<UserProfile[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_USERS_KEY);
@@ -121,6 +118,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
+  // Currently logged-in user profile
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_AUTH_KEY);
@@ -130,6 +128,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
+  // Shipments (Surat Jalan items)
   const [items, setItems] = useState<SuratJalanItem[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_ITEMS_KEY);
@@ -139,6 +138,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
+  // Return Sales Claims
   const [claims, setClaims] = useState<ReturnSalesClaim[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_CLAIMS_KEY);
@@ -150,7 +150,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [activePrintData, setActivePrintData] = useState<any>(null);
 
-  // Sync to LocalStorage
+  // Sync to LocalStorage for instant warm-start / offline resilience
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_USERS_KEY, JSON.stringify(allUsers));
@@ -195,36 +195,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [claims]);
 
-  // Load from Firestore on mount if available
+  // 1. Real-time Synchronization from Firestore: USERS
   useEffect(() => {
-    async function syncFromFirestore() {
-      try {
-        const usersSnap = await getDocs(collection(db, 'users'));
-        if (!usersSnap.empty) {
-          const loadedUsers: UserProfile[] = [];
-          usersSnap.forEach(d => loadedUsers.push(d.data() as UserProfile));
-          if (loadedUsers.length > 0) setAllUsers(loadedUsers);
-        }
+    const unsubscribe = onSnapshot(
+      collection(db, 'users'),
+      (snapshot) => {
+        const loaded: UserProfile[] = [];
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data() as UserProfile;
+          loaded.push({ ...data, uid: docSnap.id });
+        });
+        setAllUsers(loaded);
 
-        const itemsSnap = await getDocs(collection(db, 'shipments'));
-        if (!itemsSnap.empty) {
-          const loadedItems: SuratJalanItem[] = [];
-          itemsSnap.forEach(d => loadedItems.push(d.data() as SuratJalanItem));
-          if (loadedItems.length > 0) setItems(loadedItems);
+        // If current user is logged in, refresh their status in real-time (e.g. when approved)
+        if (currentUser) {
+          const fresh = loaded.find(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
+          if (fresh && (fresh.status !== currentUser.status || fresh.role !== currentUser.role)) {
+            setCurrentUser(fresh);
+          }
         }
-
-        const claimsSnap = await getDocs(collection(db, 'return_sales'));
-        if (!claimsSnap.empty) {
-          const loadedClaims: ReturnSalesClaim[] = [];
-          claimsSnap.forEach(d => loadedClaims.push(d.data() as ReturnSalesClaim));
-          if (loadedClaims.length > 0) setClaims(loadedClaims);
-        }
-      } catch (err) {
-        // Fallback to local storage
-        console.warn('Firestore initial fetch fallback to offline cache:', err);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, 'users');
       }
-    }
-    syncFromFirestore();
+    );
+
+    return () => unsubscribe();
+  }, [currentUser]);
+
+  // 2. Real-time Synchronization from Firestore: SHIPMENTS
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, 'shipments'),
+      (snapshot) => {
+        const loaded: SuratJalanItem[] = [];
+        snapshot.forEach((docSnap) => {
+          loaded.push(docSnap.data() as SuratJalanItem);
+        });
+        // Sort newest first
+        loaded.sort((a, b) => (b.uploadTimestamp || 0) - (a.uploadTimestamp || 0));
+        setItems(loaded);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, 'shipments');
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  // 3. Real-time Synchronization from Firestore: RETURN_SALES
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      collection(db, 'return_sales'),
+      (snapshot) => {
+        const loaded: ReturnSalesClaim[] = [];
+        snapshot.forEach((docSnap) => {
+          loaded.push(docSnap.data() as ReturnSalesClaim);
+        });
+        setClaims(loaded);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, 'return_sales');
+      }
+    );
+
+    return () => unsubscribe();
   }, []);
 
   // Multi-tenancy isolation check for Admin
@@ -241,28 +277,159 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return itemCust.includes(userCust) || userCust.includes(itemCust);
   };
 
-  // Auth Methods
+  // Auth Methods: Register
+  const register = async (data: {
+    email: string;
+    password: string;
+    displayName: string;
+    role: UserRole;
+    customerName: string;
+  }): Promise<{ success: boolean; message?: string }> => {
+    const trimmedEmail = data.email.trim().toLowerCase();
+    const docId = makeUserDocId(trimmedEmail);
+
+    // Check if user already exists in allUsers or directly in Firestore
+    const existingLocal = allUsers.find(u => u.email.toLowerCase() === trimmedEmail);
+    if (existingLocal) {
+      return { success: false, message: 'Email sudah terdaftar. Silakan langsung login.' };
+    }
+
+    try {
+      const snap = await getDoc(doc(db, 'users', docId));
+      if (snap.exists()) {
+        return { success: false, message: 'Email sudah terdaftar. Silakan langsung login.' };
+      }
+    } catch {
+      // Continue
+    }
+
+    // Role rules:
+    // If user selects Master System or email is fajrisani12@gmail.com, auto-approve
+    const isMaster = data.role === 'master' || trimmedEmail === 'fajrisani12@gmail.com';
+    const effectiveRole: UserRole = isMaster ? 'master' : data.role;
+    const effectiveStatus = isMaster ? 'approved' : 'pending';
+
+    const newUser: UserProfile = {
+      uid: docId,
+      email: trimmedEmail,
+      displayName: data.displayName.trim() || (isMaster ? 'Fajri Sani (Master)' : 'Pengguna TP-SYNCS'),
+      role: effectiveRole,
+      customerName: data.customerName.trim() || (isMaster ? 'PT Astra International Tbk - Isuzu (Head Office)' : 'Customer Astra Isuzu'),
+      status: effectiveStatus,
+      createdAt: new Date().toISOString(),
+      approvedAt: isMaster ? new Date().toISOString() : undefined,
+      approvedBy: isMaster ? 'SYSTEM_BOOTSTRAP' : undefined,
+      password: data.password // Stored in Firestore so any device / browser can verify
+    };
+
+    // Save locally
+    setUserPasswords(prev => ({ ...prev, [trimmedEmail]: data.password }));
+
+    // Save to Firestore so it instantly appears on all browsers and devices
+    try {
+      await setDoc(doc(db, 'users', docId), newUser);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `users/${docId}`);
+      return { 
+        success: false, 
+        message: 'Gagal menghubungkan ke Firebase Firestore. Periksa koneksi internet Anda.' 
+      };
+    }
+
+    setAllUsers(prev => [newUser, ...prev.filter(u => u.email.toLowerCase() !== trimmedEmail)]);
+
+    if (newUser.status === 'approved') {
+      setCurrentUser(newUser);
+      return {
+        success: true,
+        message: `Pendaftaran berhasil! Akun Anda langsung aktif sebagai ${newUser.role === 'master' ? 'Master System' : newUser.role.toUpperCase()}.`
+      };
+    } else {
+      return {
+        success: true,
+        message: 'Pendaftaran berhasil! Akun Anda berstatus PENDING dan menunggu persetujuan (approval) dari Master System.'
+      };
+    }
+  };
+
+  // Auth Methods: Login
   const login = async (email: string, pass: string): Promise<{ success: boolean; message?: string }> => {
     const trimmedEmail = email.trim().toLowerCase();
-    const user = allUsers.find(u => u.email.toLowerCase() === trimmedEmail);
+    const docId = makeUserDocId(trimmedEmail);
+
+    let user: UserProfile | undefined = allUsers.find(u => u.email.toLowerCase() === trimmedEmail);
+
+    // If not found in local memory, query Firestore directly (handles new browser / fresh device)
+    if (!user) {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', docId));
+        if (userDoc.exists()) {
+          user = { ...(userDoc.data() as UserProfile), uid: userDoc.id };
+        } else {
+          // Check query by email field
+          const q = query(collection(db, 'users'), where('email', '==', trimmedEmail));
+          const qSnap = await getDocs(q);
+          if (!qSnap.empty) {
+            user = { ...(qSnap.docs[0].data() as UserProfile), uid: qSnap.docs[0].id };
+          }
+        }
+      } catch (err) {
+        console.warn('Direct Firestore user lookup failed:', err);
+      }
+    }
+
+    // Special auto-bootstrap for Master System: fajrisani12@gmail.com
+    // If fajrisani12@gmail.com logs in from a new browser/phone and has never been registered in Firestore yet:
+    if (!user && trimmedEmail === 'fajrisani12@gmail.com') {
+      const masterUser: UserProfile = {
+        uid: docId,
+        email: 'fajrisani12@gmail.com',
+        displayName: 'Fajri Sani (Master)',
+        role: 'master',
+        customerName: 'PT Astra International Tbk - Isuzu (Head Office)',
+        status: 'approved',
+        createdAt: new Date().toISOString(),
+        approvedAt: new Date().toISOString(),
+        approvedBy: 'SYSTEM_BOOTSTRAP',
+        password: pass
+      };
+
+      try {
+        await setDoc(doc(db, 'users', docId), masterUser);
+        user = masterUser;
+      } catch (e) {
+        console.error('Failed to auto-seed master user to Firestore:', e);
+      }
+    }
 
     if (!user) {
       return { 
         success: false, 
-        message: 'Akun dengan email ini belum terdaftar. Silakan lakukan pendaftaran akun baru terlebih dahulu.' 
+        message: 'Akun dengan email ini belum terdaftar. Silakan pilih tab "Daftar Akun Baru" terlebih dahulu.' 
       };
     }
 
-    // Password validation
-    const savedPassword = userPasswords[trimmedEmail];
-    if (savedPassword && savedPassword !== pass) {
+    // Password validation:
+    // 1. Check user.password saved in Firestore
+    // 2. Check local userPasswords
+    // 3. If password wasn't saved yet on existing account, update and sync it to Firestore
+    const validPass = user.password || userPasswords[trimmedEmail];
+    if (validPass && validPass !== pass) {
       return { success: false, message: 'Kata sandi tidak sesuai. Silakan periksa kembali.' };
     }
 
+    // If Firestore doc lacked password, save it now
+    if (!user.password && pass) {
+      user.password = pass;
+      updateDoc(doc(db, 'users', user.uid), { password: pass }).catch(() => {});
+      setUserPasswords(prev => ({ ...prev, [trimmedEmail]: pass }));
+    }
+
+    // Approval status validation
     if (user.status === 'pending') {
       return {
         success: false,
-        message: 'Akun Anda sedang menunggu persetujuan (Approval) dari Master System. Hubungi Administrator.'
+        message: 'Akun Anda sedang menunggu persetujuan (Approval) dari Master System. Silakan hubungi akun Master System untuk aktivasi.'
       };
     }
 
@@ -272,63 +439,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setCurrentUser(user);
     return { success: true };
-  };
-
-  const register = async (data: {
-    email: string;
-    password: string;
-    displayName: string;
-    role: UserRole;
-    customerName: string;
-  }): Promise<{ success: boolean; message?: string }> => {
-    const trimmedEmail = data.email.trim().toLowerCase();
-    const existing = allUsers.find(u => u.email.toLowerCase() === trimmedEmail);
-    if (existing) {
-      return { success: false, message: 'Email sudah terdaftar. Silakan langsung login.' };
-    }
-
-    // Role rules:
-    // If user selects Master System or if email is fajrisani12@gmail.com, auto-approve
-    const isMaster = data.role === 'master' || trimmedEmail === 'fajrisani12@gmail.com';
-    const effectiveRole: UserRole = isMaster ? 'master' : data.role;
-    const effectiveStatus = isMaster ? 'approved' : 'pending';
-
-    const newUser: UserProfile = {
-      uid: `usr-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      email: trimmedEmail,
-      displayName: data.displayName.trim(),
-      role: effectiveRole,
-      customerName: data.customerName.trim(),
-      status: effectiveStatus,
-      createdAt: new Date().toISOString(),
-      approvedAt: isMaster ? new Date().toISOString() : undefined,
-      approvedBy: isMaster ? 'SYSTEM_BOOTSTRAP' : undefined
-    };
-
-    // Save password
-    setUserPasswords(prev => ({ ...prev, [trimmedEmail]: data.password }));
-
-    // Save to Firestore
-    try {
-      await setDoc(doc(db, 'users', newUser.uid), newUser);
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, `users/${newUser.uid}`);
-    }
-
-    setAllUsers(prev => [newUser, ...prev]);
-
-    if (newUser.status === 'approved') {
-      setCurrentUser(newUser);
-      return {
-        success: true,
-        message: `Pendaftaran berhasil! Akun Anda aktif sebagai ${newUser.role === 'master' ? 'Master System' : newUser.role.toUpperCase()}.`
-      };
-    } else {
-      return {
-        success: true,
-        message: 'Pendaftaran berhasil! Akun Anda berstatus PENDING dan menunggu persetujuan dari Master System.'
-      };
-    }
   };
 
   const logout = () => {
@@ -353,6 +463,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       handleFirestoreError(e, OperationType.UPDATE, `users/${uid}`);
     }
 
+    // Local optimistic update
     setAllUsers(prev => prev.map(u => {
       if (u.uid === uid) {
         return { ...u, status: 'approved', approvedAt: nowStr, approvedBy: approver };
@@ -372,6 +483,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       handleFirestoreError(e, OperationType.UPDATE, `users/${uid}`);
     }
 
+    // Local optimistic update
     setAllUsers(prev => prev.map(u => (u.uid === uid ? { ...u, status: 'rejected' } : u)));
   };
 
@@ -383,7 +495,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'checking' as const
     }));
 
-    // Save to Firestore in background
+    // Save each row to Firestore so all connected devices see it immediately
     for (const item of readyItems) {
       try {
         await setDoc(doc(db, 'shipments', item.id), item);
@@ -401,12 +513,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const safeQty = Math.max(0, isNaN(qtyAktual) ? 0 : qtyAktual);
         const hasDiscrepancy = safeQty < item.quantity;
         const discrepancyQty = hasDiscrepancy ? item.quantity - safeQty : 0;
-        return {
+        const updated = {
           ...item,
           qtyAktual: safeQty,
           hasDiscrepancy,
           discrepancyQty
         };
+        // Background sync to Firestore
+        setDoc(doc(db, 'shipments', id), updated).catch(() => {});
+        return updated;
       }
       return item;
     }));
@@ -415,7 +530,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const toggleItemCheck = (id: string, checked?: boolean) => {
     setItems(prev => prev.map(item => {
       if (item.id === id) {
-        return { ...item, isChecked: checked !== undefined ? checked : !item.isChecked };
+        const updated = { ...item, isChecked: checked !== undefined ? checked : !item.isChecked };
+        setDoc(doc(db, 'shipments', id), updated).catch(() => {});
+        return updated;
       }
       return item;
     }));
@@ -428,7 +545,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (filterMaterial && !item.material.toLowerCase().includes(filterMaterial.toLowerCase())) {
         return item;
       }
-      return { ...item, isChecked: checked };
+      const updated = { ...item, isChecked: checked };
+      setDoc(doc(db, 'shipments', item.id), updated).catch(() => {});
+      return updated;
     }));
   };
 
@@ -457,7 +576,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         completedItemsList.push(updatedItem);
 
-        // Firestore sync
+        // Firestore sync for shipment item
         setDoc(doc(db, 'shipments', item.id), updatedItem).catch(e => {
           handleFirestoreError(e, OperationType.UPDATE, `shipments/${item.id}`);
         });

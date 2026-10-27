@@ -322,6 +322,23 @@ export const Navbar: React.FC<NavbarProps> = ({ activeMenu, onSelectMenu, onOpen
             </span>
           )}
         </button>
+
+        {currentUser?.role === 'master' && (
+          <button
+            onClick={() => onSelectMenu('users')}
+            className={`relative flex flex-col items-center py-1 px-2 rounded-lg transition ${
+              activeMenu === 'users' ? 'text-purple-700 font-bold' : 'text-slate-500 font-medium'
+            }`}
+          >
+            <Users className="w-5 h-5" />
+            <span className="text-[10px] mt-0.5">Approval</span>
+            {pendingUsersCount > 0 && (
+              <span className="absolute top-0 right-1 px-1.5 py-0.2 rounded-full text-[9px] font-black bg-amber-500 text-white animate-pulse">
+                {pendingUsersCount}
+              </span>
+            )}
+          </button>
+        )}
       </div>
     </header>
   );

@@ -24,8 +24,8 @@ import { AstraIsuzuLogo } from './AstraIsuzuLogo';
 export const AuthScreen: React.FC = () => {
   const { login, register, allUsers } = useApp();
   
-  // Default to register if no users exist in database yet
-  const [mode, setMode] = useState<'login' | 'register'>(allUsers.length === 0 ? 'register' : 'login');
+  // Default to login tab
+  const [mode, setMode] = useState<'login' | 'register'>('login');
 
   // Form states
   const [email, setEmail] = useState('');

@@ -11,6 +11,7 @@ export interface UserProfile {
   createdAt: string;
   approvedAt?: string;
   approvedBy?: string;
+  password?: string;
 }
 
 export type ItemProcessStatus = 'uploaded' | 'checking' | 'completed';

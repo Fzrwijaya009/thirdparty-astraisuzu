@@ -153,8 +153,8 @@ export const UserApprovalView: React.FC = () => {
           </div>
         </div>
 
-        {/* Users Table */}
-        <div className="overflow-x-auto">
+        {/* Users Table for Desktop / Tablet */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-xs text-left">
             <thead className="bg-slate-100/80 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
               <tr>
@@ -260,6 +260,81 @@ export const UserApprovalView: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Users Card View for Mobile Handphones */}
+        <div className="md:hidden divide-y divide-slate-200">
+          {filteredUsers.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 text-xs">
+              Tidak ada akun dalam daftar ini.
+            </div>
+          ) : (
+            filteredUsers.map((u) => (
+              <div key={u.uid} className="p-4 space-y-3 bg-white">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-sm">{u.displayName}</h3>
+                    <p className="text-xs text-slate-500 font-mono">{u.email}</p>
+                  </div>
+                  {u.status === 'pending' && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
+                      Pending
+                    </span>
+                  )}
+                  {u.status === 'approved' && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      Approved
+                    </span>
+                  )}
+                  {u.status === 'rejected' && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 border border-red-300">
+                      Rejected
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-medium">Otorisasi</span>
+                    <span className="font-bold text-slate-800">
+                      {u.role === 'master' ? 'Master System' : u.role === 'owner' ? 'Owner' : 'Admin'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block font-medium">Tgl Daftar</span>
+                    <span className="font-semibold text-slate-700">
+                      {new Date(u.createdAt).toLocaleDateString('id-ID')}
+                    </span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-[10px] text-slate-400 block font-medium">Nama Customer</span>
+                    <span className="font-semibold text-slate-800 truncate block">
+                      {u.customerName}
+                    </span>
+                  </div>
+                </div>
+
+                {u.status === 'pending' && (
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={() => approveUser(u.uid)}
+                      disabled={!isMaster}
+                      className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs"
+                    >
+                      <Check className="w-4 h-4" /> Setujui Akun (Approve)
+                    </button>
+                    <button
+                      onClick={() => rejectUser(u.uid)}
+                      disabled={!isMaster}
+                      className="px-3 py-2 text-red-600 hover:bg-red-50 border border-red-200 rounded-xl text-xs font-bold transition flex items-center justify-center"
+                    >
+                      <X className="w-4 h-4" /> Tolak
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </div>
     </div>
