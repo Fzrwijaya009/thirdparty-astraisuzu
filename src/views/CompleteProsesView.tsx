@@ -20,7 +20,9 @@ import {
   Camera,
   Upload,
   ExternalLink,
-  ImageIcon
+  ImageIcon,
+  Receipt,
+  FileText
 } from 'lucide-react';
 import { exportSuratJalanToExcel } from '../utils/excel';
 import { SuratJalanItem, JenisClaim } from '../types';
@@ -28,11 +30,13 @@ import { SuratJalanItem, JenisClaim } from '../types';
 export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }> = ({ onNavigate }) => {
   const { 
     items, 
+    claims,
     deleteItem, 
     editItemDetails, 
     currentUser, 
     canAccessItem,
-    submitClaimFromComplete 
+    submitClaimFromComplete,
+    createInvoice
   } = useApp();
 
   // Filter completed items and apply Admin customer isolation
@@ -63,6 +67,12 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
   const [fotoSuratJalanName, setFotoSuratJalanName] = useState('');
   const [fotoDnDusUrl, setFotoDnDusUrl] = useState('');
   const [fotoDnDusName, setFotoDnDusName] = useState('');
+
+  // Requirement 6: Create Invoice Modal state (Owner & Master System only)
+  const [invoiceModalItem, setInvoiceModalItem] = useState<SuratJalanItem | null>(null);
+  const [invoiceNumberInput, setInvoiceNumberInput] = useState('');
+  const [invoiceNotesInput, setInvoiceNotesInput] = useState('');
+  const [isSubmittingInvoice, setIsSubmittingInvoice] = useState(false);
   const [fotoDetailItemUrl, setFotoDetailItemUrl] = useState('');
   const [fotoDetailItemName, setFotoDetailItemName] = useState('');
 
@@ -201,6 +211,38 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
     setClaimModalItem(null);
     // Requirement 4: "Submit. maka automatis berpindah ke field menu Return Sales"
     onNavigate('returns');
+  };
+
+  // Requirement 6: Handlers for Create Invoice (Owner & Master System only)
+  const handleOpenInvoiceModal = (item: SuratJalanItem) => {
+    if (!isOwnerOrMaster) {
+      alert('Akses Ditolak: Hanya Owner dan Master System yang memiliki otorisasi untuk Create Invoice.');
+      return;
+    }
+    setInvoiceModalItem(item);
+    setInvoiceNumberInput(item.invoiceNumber || `INV/ISZ/${new Date().getFullYear()}/${item.delivery || item.nomorSuratJalan || '001'}`);
+    setInvoiceNotesInput(item.invoiceNotes || '');
+  };
+
+  const handleSubmitInvoice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!invoiceModalItem) return;
+    if (!invoiceNumberInput.trim()) {
+      alert('Mohon isi Nomor Invoice.');
+      return;
+    }
+
+    setIsSubmittingInvoice(true);
+    try {
+      const res = await createInvoice([invoiceModalItem.id], invoiceNumberInput.trim(), invoiceNotesInput.trim());
+      if (!res.success) {
+        alert(res.message);
+      } else {
+        setInvoiceModalItem(null);
+      }
+    } finally {
+      setIsSubmittingInvoice(false);
+    }
   };
 
   return (
@@ -376,6 +418,7 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
               const isOverage = diffNum > 0;
               const isProblem = item.hasDiscrepancy || isShortage || isOverage;
               const diffAbs = Math.abs(diffNum);
+              const isClaimed = item.claimStatus === 'claimed' || claims.some(c => c.shipmentItemId === item.id || (c.nomorSuratJalan === item.nomorSuratJalan && c.material === item.material));
 
               return (
                 <div 
@@ -406,7 +449,7 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                         {item.materialDescription}
                       </div>
                       <div className="text-[11px] text-slate-500 mt-0.5">
-                        SJ: <span className="font-mono font-bold text-slate-700">{item.nomorSuratJalan}</span> • Cust: {item.name}
+                        SJ: <span className="font-mono font-bold text-slate-700">{item.nomorSuratJalan}</span> • Deliv: <span className="font-mono font-bold text-slate-700">{item.delivery || '-'}</span> • Cust: {item.name}
                       </div>
                       <div className="text-[10px] text-slate-400 mt-0.5">
                         Tgl Selesai: {item.completedDate || '-'}
@@ -437,15 +480,45 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                     </div>
                   </div>
 
+                  {/* Status Invoice in Mobile */}
+                  <div className="pt-2 flex items-center justify-between text-xs border-t border-slate-100">
+                    <span className="text-slate-500 font-medium text-[11px]">Status Invoice:</span>
+                    {item.invoiceStatus === 'invoiced' ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-100 text-[#005BAC] border border-blue-300">
+                        <Receipt className="w-3.5 h-3.5 text-[#005BAC]" />
+                        Invoice: {item.invoiceNumber || 'Created'}
+                      </span>
+                    ) : isOwnerOrMaster ? (
+                      <button
+                        onClick={() => handleOpenInvoiceModal(item)}
+                        className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-lg transition flex items-center gap-1 shadow-2xs"
+                      >
+                        <Receipt className="w-3 h-3" />
+                        Create Invoice
+                      </button>
+                    ) : (
+                      <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                        Menunggu Invoice
+                      </span>
+                    )}
+                  </div>
+
                   {/* Mobile Claim Button */}
                   {isProblem && (
-                    <button
-                      onClick={() => handleOpenClaimModal(item)}
-                      className="w-full py-2 px-3 bg-[#ED1B24] hover:bg-[#c9141c] text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5"
-                    >
-                      <FileWarning className="w-4 h-4" />
-                      Claim Proses (Isi Form Klaim)
-                    </button>
+                    isClaimed ? (
+                      <div className="w-full py-2 px-3 bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-2xs">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        Claim Diajukan ✓
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => handleOpenClaimModal(item)}
+                        className="w-full py-2 px-3 bg-[#ED1B24] hover:bg-[#c9141c] text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5"
+                      >
+                        <FileWarning className="w-4 h-4" />
+                        Claim Proses (Isi Form Klaim)
+                      </button>
+                    )
                   )}
                 </div>
               );
@@ -461,6 +534,7 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                 <th className="py-3 px-3">Status</th>
                 <th className="py-3 px-3">Complete Date</th>
                 <th className="py-3 px-3">No. Surat Jalan</th>
+                <th className="py-3 px-3">Delivery (No)</th>
                 <th className="py-3 px-3">Shipment No</th>
                 <th className="py-3 px-3">Material (Part No)</th>
                 <th className="py-3 px-3">Deskripsi Sparepart</th>
@@ -470,13 +544,14 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                 <th className="py-3 px-3">UoM</th>
                 <th className="py-3 px-3">Customer / Cabang</th>
                 <th className="py-3 px-3 text-center">Field Claim Proses</th>
+                <th className="py-3 px-3 text-center">Status Invoice</th>
                 <th className="py-3 px-3 text-center">{isOwnerOrMaster ? 'Aksi Data' : ''}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 text-slate-700">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="py-12 text-center text-slate-400">
+                  <td colSpan={15} className="py-12 text-center text-slate-400">
                     Tidak ada data yang sesuai dengan filter Complete Proses.
                   </td>
                 </tr>
@@ -489,6 +564,7 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                   const isProblem = item.hasDiscrepancy || isShortage || isOverage;
                   const diffAbs = Math.abs(diffNum);
                   const isEditing = editingId === item.id;
+                  const isClaimed = item.claimStatus === 'claimed' || claims.some(c => c.shipmentItemId === item.id || (c.nomorSuratJalan === item.nomorSuratJalan && c.material === item.material));
 
                   return (
                     <tr
@@ -520,6 +596,10 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
 
                       <td className="py-2.5 px-3 font-mono font-bold text-blue-700 whitespace-nowrap">
                         {item.nomorSuratJalan}
+                      </td>
+
+                      <td className="py-2.5 px-3 font-mono text-slate-700 whitespace-nowrap">
+                        {item.delivery || '-'}
                       </td>
 
                       <td className="py-2.5 px-3 font-mono text-slate-600 whitespace-nowrap">
@@ -572,18 +652,52 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                         {item.name}
                       </td>
 
-                      {/* Requirement 4: Field Claim Proses Button */}
+                      {/* Requirement 2: Field Claim Proses -> Claim Diajukan if already submitted */}
                       <td className="py-2.5 px-3 text-center whitespace-nowrap">
                         {isProblem ? (
-                          <button
-                            onClick={() => handleOpenClaimModal(item)}
-                            className="px-3 py-1.5 bg-[#ED1B24] hover:bg-[#c9141c] text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 mx-auto"
-                          >
-                            <FileWarning className="w-3.5 h-3.5" />
-                            Claim Proses
-                          </button>
+                          isClaimed ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-xs rounded-xl shadow-2xs mx-auto">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              Claim Diajukan
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleOpenClaimModal(item)}
+                              className="px-3 py-1.5 bg-[#ED1B24] hover:bg-[#c9141c] text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5 mx-auto"
+                            >
+                              <FileWarning className="w-3.5 h-3.5" />
+                              Claim Proses
+                            </button>
+                          )
                         ) : (
                           <span className="text-[11px] text-slate-400 font-medium">-</span>
+                        )}
+                      </td>
+
+                      {/* Requirement 6: Field Button Informasi Sudah Create Invoice */}
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                        {item.invoiceStatus === 'invoiced' ? (
+                          <div className="inline-flex flex-col items-center">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-100 text-[#005BAC] border border-blue-300 shadow-2xs">
+                              <Receipt className="w-3.5 h-3.5 text-[#005BAC]" />
+                              {item.invoiceNumber || 'Sudah Invoice'}
+                            </span>
+                            <span className="text-[10px] text-slate-400 mt-0.5 font-medium">
+                              Oleh: {item.invoicedBy || 'Owner'}
+                            </span>
+                          </div>
+                        ) : isOwnerOrMaster ? (
+                          <button
+                            onClick={() => handleOpenInvoiceModal(item)}
+                            className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition shadow-2xs flex items-center gap-1.5 mx-auto"
+                          >
+                            <Receipt className="w-3.5 h-3.5" />
+                            Create Invoice
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                            Menunggu Invoice
+                          </span>
                         )}
                       </td>
 
@@ -860,6 +974,114 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                 >
                   <Upload className="w-4 h-4" />
                   Submit Klaim ke Menu Return Sales
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Requirement 6: MODAL CREATE INVOICE (Khusus Owner & Master System) */}
+      {invoiceModalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full my-8 overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95">
+            <div className="bg-gradient-to-r from-indigo-700 to-blue-800 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/10 rounded-xl">
+                  <Receipt className="w-5 h-5 text-indigo-200" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base">Proses Create Invoice</h3>
+                  <p className="text-xs text-indigo-100">
+                    Otorisasi Khusus Owner & Master System
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setInvoiceModalItem(null)}
+                className="p-1.5 text-indigo-200 hover:text-white rounded-lg transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitInvoice} className="p-6 space-y-4">
+              {/* Item Info Box */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">No. Surat Jalan:</span>
+                    <span className="font-mono font-bold text-slate-800">{invoiceModalItem.nomorSuratJalan}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Delivery (No):</span>
+                    <span className="font-mono font-bold text-slate-800">{invoiceModalItem.delivery || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Material Part:</span>
+                    <span className="font-mono font-bold text-[#005BAC]">{invoiceModalItem.material}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Qty Selesai:</span>
+                    <span className="font-bold text-slate-800">{invoiceModalItem.qtyAktual ?? invoiceModalItem.quantity} {invoiceModalItem.handlingUnitUom}</span>
+                  </div>
+                </div>
+                <div className="pt-1 border-t border-slate-200">
+                  <span className="text-slate-400 block text-[11px]">Customer:</span>
+                  <span className="font-semibold text-slate-800">{invoiceModalItem.name}</span>
+                </div>
+              </div>
+
+              {/* Input Nomor Invoice */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  Nomor Invoice *
+                </label>
+                <div className="relative">
+                  <FileText className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: INV/ISZ/2026/001 atau INV-2026-XXXX"
+                    value={invoiceNumberInput}
+                    onChange={(e) => setInvoiceNumberInput(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-xs font-mono font-bold bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Nomor ini akan tercatat dan tersinkronisasi. Akun Admin akan menerima status bahwa invoice telah diterbitkan.
+                </p>
+              </div>
+
+              {/* Catatan / Keterangan Invoice */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  Catatan Invoice (Opsional)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Tambahkan catatan billing, termin, atau rincian PPN jika diperlukan..."
+                  value={invoiceNotesInput}
+                  onChange={(e) => setInvoiceNotesInput(e.target.value)}
+                  className="w-full p-2.5 text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+
+              {/* Footer Controls */}
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setInvoiceModalItem(null)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingInvoice}
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Receipt className="w-4 h-4" />
+                  {isSubmittingInvoice ? 'Menyimpan...' : 'Simpan & Terbitkan Invoice'}
                 </button>
               </div>
             </form>

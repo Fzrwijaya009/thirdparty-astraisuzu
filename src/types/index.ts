@@ -52,9 +52,20 @@ export interface SuratJalanItem {
   checkedBy?: string;
   completedDate?: string;
   notes?: string;
+
+  // Invoice process fields (Owner & Master System only)
+  invoiceStatus?: 'pending' | 'invoiced';
+  invoiceNumber?: string;
+  invoicedAt?: string;
+  invoicedBy?: string;
+  invoiceNotes?: string;
+
+  // Claim tracking
+  claimStatus?: 'unclaimed' | 'claimed';
+  claimId?: string;
 }
 
-export type ClaimStatus = 'opened' | 'inprogress' | 'completed';
+export type ClaimStatus = 'opened' | 'inprogress' | 'completed' | 'rejected';
 export type JenisClaim = 'Claim Kurang' | 'Claim Lebih' | 'Claim Rusak' | 'Claim Salah Fisik';
 
 export interface ClaimDocuments {
@@ -82,7 +93,7 @@ export interface ReturnSalesClaim {
   uom: string;
   plant: string;
   documentDate: string;
-  status: ClaimStatus; // 'opened' | 'inprogress' | 'completed'
+  status: ClaimStatus; // 'opened' | 'inprogress' | 'completed' | 'rejected'
   jenisClaim?: JenisClaim;
   penjelasanClaim?: string;
   createdDate: string;
@@ -92,10 +103,17 @@ export interface ReturnSalesClaim {
   analyzedAt?: string;
   analyzedBy?: string;
   analisaNotes?: string;
+  // Feedback & Reupload tracking
+  hasAdminReupload?: boolean;
+  reSubmittedAt?: string;
   // Approval Owner
   approvedBy?: string;
   approvedAt?: string;
   approvalNotes?: string;
+  // Rejection Owner/Master
+  rejectedBy?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
   documents: ClaimDocuments;
 }
 

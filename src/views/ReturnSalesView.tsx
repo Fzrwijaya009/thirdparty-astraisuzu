@@ -36,11 +36,12 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
     submitClaimDocs, 
     analyzeClaim, 
     approveClaim, 
+    rejectClaim,
     currentUser, 
     canAccessItem 
   } = useApp();
 
-  // Tab filter: 'opened' | 'inprogress' | 'completed'
+  // Tab filter: 'opened' | 'inprogress' | 'completed' | 'rejected'
   const [activeTab, setActiveTab] = useState<ClaimStatus>('opened');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -62,6 +63,10 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
   const [approvalNotesInput, setApprovalNotesInput] = useState('');
   const [actionSuccessMsg, setActionSuccessMsg] = useState('');
 
+  // Requirement 4: Rejection modal state (Owner & Master only)
+  const [rejectModalClaim, setRejectModalClaim] = useState<ReturnSalesClaim | null>(null);
+  const [rejectionReasonInput, setRejectionReasonInput] = useState('');
+
   // Image zoom lightbox
   const [zoomedImage, setZoomedImage] = useState<{ url: string; title: string } | null>(null);
 
@@ -75,6 +80,11 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
   const countOpened = accessibleClaims.filter(c => c.status === 'opened').length;
   const countInprogress = accessibleClaims.filter(c => c.status === 'inprogress').length;
   const countCompleted = accessibleClaims.filter(c => c.status === 'completed').length;
+  const countRejected = accessibleClaims.filter(c => c.status === 'rejected').length;
+
+  // Requirement 3: Realtime sync notification flags
+  const claimsWithFeedbackForAdmin = accessibleClaims.filter(c => c.status === 'inprogress' && !!c.analyzedAt);
+  const claimsWithReuploadForOwner = accessibleClaims.filter(c => c.status === 'inprogress' && !!c.hasAdminReupload);
 
   const filteredClaims = accessibleClaims.filter(claim => {
     if (claim.status !== activeTab) return false;
@@ -197,6 +207,34 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
     }
   };
 
+  // Requirement 4: Handlers for Reject Claim (Owner & Master System only)
+  const handleOpenRejectModal = (claim: ReturnSalesClaim) => {
+    if (!isOwnerOrMaster) {
+      alert('Akses Ditolak: Hanya Owner dan Master System yang memiliki otorisasi untuk menolak klaim.');
+      return;
+    }
+    setRejectModalClaim(claim);
+    setRejectionReasonInput('');
+  };
+
+  const handleConfirmReject = () => {
+    if (!rejectModalClaim) return;
+    if (!rejectionReasonInput.trim()) {
+      alert('Mohon isi alasan penolakan klaim.');
+      return;
+    }
+    const res = rejectClaim(rejectModalClaim.id, rejectionReasonInput.trim());
+    if (!res.success) {
+      alert(res.message);
+    } else {
+      setRejectModalClaim(null);
+      if (activeModalClaim?.id === rejectModalClaim.id) {
+        setActiveModalClaim(null);
+      }
+      setActiveTab('rejected');
+    }
+  };
+
   const handleExport = () => {
     exportClaimsToExcel(filteredClaims, `Astra_Isuzu_Return_Sales_${activeTab.toUpperCase()}`);
   };
@@ -233,8 +271,55 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
         </div>
       </div>
 
-      {/* 3 Main Filter Buttons / Tabs (Claim Opened, Claim Inprogress, Claim Completed) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* Requirement 3: Realtime Notification Banners */}
+      {/* 1. Alert for Admin when Owner provided feedback analysis */}
+      {isAdmin && claimsWithFeedbackForAdmin.length > 0 && (
+        <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl flex items-center justify-between gap-3 text-xs text-amber-950 shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-500 text-white rounded-xl shrink-0">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="font-bold text-sm text-amber-900">Pemberitahuan: Feedback Analisa dari Owner Telah Diterima!</span>
+              <p className="text-amber-800 mt-0.5">
+                Terdapat <strong>{claimsWithFeedbackForAdmin.length} klaim</strong> yang telah dianalisa oleh Owner. Periksa catatan analisa dan lakukan <strong>re-upload bukti foto</strong> jika diperlukan pembaruan.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab('inprogress')}
+            className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shrink-0 transition shadow-2xs"
+          >
+            Lihat Klaim ({claimsWithFeedbackForAdmin.length})
+          </button>
+        </div>
+      )}
+
+      {/* 2. Alert for Owner & Master System when Admin re-uploaded evidence photos */}
+      {isOwnerOrMaster && claimsWithReuploadForOwner.length > 0 && (
+        <div className="p-4 bg-blue-50 border-2 border-blue-300 rounded-2xl flex items-center justify-between gap-3 text-xs text-blue-950 shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-[#005BAC] text-white rounded-xl shrink-0">
+              <AlertOctagon className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="font-bold text-sm text-blue-900">Pembaruan Dokumen: Bukti Foto Telah Di-Reupload oleh Admin!</span>
+              <p className="text-blue-800 mt-0.5">
+                Terdapat <strong>{claimsWithReuploadForOwner.length} klaim</strong> dengan foto bukti yang diperbarui oleh Admin dan memerlukan review ulang hasil analisa/approval.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab('inprogress')}
+            className="px-3.5 py-2 bg-[#005BAC] hover:bg-blue-800 text-white font-bold rounded-xl shrink-0 transition shadow-2xs"
+          >
+            Review Pembaruan ({claimsWithReuploadForOwner.length})
+          </button>
+        </div>
+      )}
+
+      {/* 4 Main Filter Buttons / Tabs (Claim Opened, Claim Inprogress, Claim Completed, Claim Rejected) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Tab 1: Claim Opened */}
         <button
           onClick={() => setActiveTab('opened')}
@@ -274,6 +359,11 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
               <span className="text-xs font-bold text-blue-900 uppercase tracking-wider">
                 2. Claim Inprogress
               </span>
+              {claimsWithReuploadForOwner.length > 0 && isOwnerOrMaster && (
+                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-blue-600 text-white animate-pulse">
+                  UPDATE
+                </span>
+              )}
             </div>
             <div className="text-2xl font-black text-blue-900 mt-1">{countInprogress}</div>
             <p className="text-[11px] text-blue-700 font-medium mt-0.5">
@@ -305,6 +395,30 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
             </p>
           </div>
           <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+        </button>
+
+        {/* Tab 4: Claim Rejected */}
+        <button
+          onClick={() => setActiveTab('rejected')}
+          className={`p-4 rounded-2xl border text-left transition flex items-center justify-between ${
+            activeTab === 'rejected'
+              ? 'bg-red-50 border-red-400 ring-2 ring-red-500/20'
+              : 'bg-white border-slate-200 hover:border-slate-300'
+          }`}
+        >
+          <div>
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${activeTab === 'rejected' ? 'bg-red-600' : 'bg-red-400'}`} />
+              <span className="text-xs font-bold text-red-900 uppercase tracking-wider">
+                4. Claim Rejected
+              </span>
+            </div>
+            <div className="text-2xl font-black text-red-900 mt-1">{countRejected}</div>
+            <p className="text-[11px] text-red-700 font-medium mt-0.5">
+              Ditolak Owner/Master
+            </p>
+          </div>
+          <X className="w-6 h-6 text-red-600" />
         </button>
       </div>
 
@@ -463,6 +577,13 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
                               <ShieldCheck className="w-3.5 h-3.5" />
                               Approve
                             </button>
+                            <button
+                              onClick={() => handleOpenRejectModal(claim)}
+                              className="col-span-2 py-2 px-3 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              Reject Claim (Tolak Klaim)
+                            </button>
                           </>
                         )}
                       </div>
@@ -476,6 +597,17 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
                         <Eye className="w-4 h-4" />
                         Lihat Rincian & Riwayat Lead Time
                       </button>
+                    )}
+
+                    {claim.status === 'rejected' && (
+                      <div className="space-y-1.5 bg-red-50 p-2.5 rounded-xl border border-red-200">
+                        <div className="flex items-center justify-between text-xs font-bold text-red-900">
+                          <span className="flex items-center gap-1"><X className="w-3.5 h-3.5 text-red-600" /> Klaim Ditolak</span>
+                          <span className="text-[10px] text-red-700">{formatDateTimeIndo(claim.rejectedAt)}</span>
+                        </div>
+                        <p className="text-[11px] text-red-800">Alasan: "{claim.rejectionReason || '-'}"</p>
+                        <div className="text-[10px] text-slate-500">Oleh: {claim.rejectedBy || 'Owner'}</div>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -587,6 +719,11 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
                             }`}>
                               {claim.analyzedAt ? '2. Dianalisa • Siap Approve' : '2. Inprogress (Menunggu Analisa)'}
                             </span>
+                            {claim.hasAdminReupload && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-300 inline-block mt-0.5">
+                                Bukti Foto Baru ✓
+                              </span>
+                            )}
                             <span className="text-[10px] text-slate-400 block">
                               Submit: {formatDateTimeIndo(claim.submittedDate)}
                             </span>
@@ -599,6 +736,16 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
                             </span>
                             <span className="text-[10px] text-slate-400 block mt-0.5">
                               {formatDateTimeIndo(claim.approvedAt)}
+                            </span>
+                          </div>
+                        )}
+                        {claim.status === 'rejected' && (
+                          <div>
+                            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-red-100 text-red-800 border border-red-300">
+                              4. Ditolak ✕
+                            </span>
+                            <span className="text-[10px] text-slate-400 block mt-0.5">
+                              {formatDateTimeIndo(claim.rejectedAt)}
                             </span>
                           </div>
                         )}
@@ -652,21 +799,31 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
                                   <ShieldCheck className="w-3.5 h-3.5" />
                                   Approve
                                 </button>
+
+                                {/* Requirement 4: Reject Claim Button */}
+                                <button
+                                  onClick={() => handleOpenRejectModal(claim)}
+                                  title="Tolak Klaim (Reject)"
+                                  className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg transition shadow-2xs flex items-center gap-1"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                  Reject
+                                </button>
                               </>
                             ) : (
                               // Admin View
                               <div className="flex items-center gap-1">
                                 <button
                                   onClick={() => handleOpenModal(claim, 'upload')}
-                                  title="Edit Dokumen Bukti"
-                                  className="px-2.5 py-1 text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-lg font-semibold text-xs transition"
+                                  title="Re-upload Dokumen Bukti"
+                                  className="px-2.5 py-1 text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg font-bold text-xs transition"
                                 >
-                                  Edit Bukti
+                                  Re-upload Bukti
                                 </button>
                                 <button
                                   onClick={() => handleOpenModal(claim, 'view')}
                                   title="Lihat Status & Bukti"
-                                  className="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg font-semibold text-xs transition flex items-center gap-1"
+                                  className="px-2.5 py-1 bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 rounded-lg font-semibold text-xs transition flex items-center gap-1"
                                 >
                                   <Eye className="w-3.5 h-3.5" />
                                   Status
@@ -683,6 +840,16 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
                           >
                             <Eye className="w-3.5 h-3.5" />
                             Detail & Lead Time
+                          </button>
+                        )}
+
+                        {claim.status === 'rejected' && (
+                          <button
+                            onClick={() => handleOpenModal(claim, 'view')}
+                            className="px-3 py-1 bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-xs rounded-lg border border-red-200 transition flex items-center gap-1 mx-auto"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            Detail Penolakan
                           </button>
                         )}
                       </td>
@@ -1143,6 +1310,24 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
                   </div>
                 </div>
               )}
+
+              {/* Display if rejected */}
+              {activeModalClaim.status === 'rejected' && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-xs text-red-900 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5 text-red-700">
+                    <X className="w-4 h-4 text-red-600" />
+                    Klaim Ditolak oleh: {activeModalClaim.rejectedBy || 'Owner / Master System'}
+                  </div>
+                  <p className="text-slate-800">
+                    <strong>Alasan Penolakan:</strong> "{activeModalClaim.rejectionReason || '-'}"
+                  </p>
+                  {activeModalClaim.rejectedAt && (
+                    <span className="text-[10px] text-red-600 block">
+                      Waktu Penolakan: {formatDateTimeIndo(activeModalClaim.rejectedAt)}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Modal Footer Controls */}
@@ -1156,18 +1341,32 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
               </button>
 
               <div className="flex items-center gap-2">
-                {modalMode === 'upload' && isAdmin && (
+                {/* Admin button for upload / re-upload */}
+                {isAdmin && (activeModalClaim.status === 'opened' || activeModalClaim.status === 'inprogress') && (
                   <button
                     type="button"
                     onClick={handleSubmitDocuments}
                     className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5"
                   >
                     <Upload className="w-4 h-4" />
-                    Submit Dokumen Bukti → Inprogress
+                    {activeModalClaim.status === 'inprogress' ? 'Submit Re-upload Bukti Foto' : 'Submit Dokumen Bukti → Inprogress'}
                   </button>
                 )}
 
-                {isOwnerOrMaster && activeModalClaim.status !== 'completed' && (
+                {/* Owner / Master: Reject Claim Button */}
+                {isOwnerOrMaster && activeModalClaim.status !== 'completed' && activeModalClaim.status !== 'rejected' && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenRejectModal(activeModalClaim)}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5"
+                  >
+                    <X className="w-4 h-4" />
+                    Reject Claim
+                  </button>
+                )}
+
+                {/* Owner / Master: Approve Claim Button */}
+                {isOwnerOrMaster && activeModalClaim.status !== 'completed' && activeModalClaim.status !== 'rejected' && (
                   <button
                     type="button"
                     onClick={handleApprove}
@@ -1177,6 +1376,74 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
                     Approve Klaim (Selesai)
                   </button>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Requirement 4: MODAL POPUP TOLAK / REJECT KLAIM */}
+      {rejectModalClaim && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full my-8 overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95">
+            <div className="bg-red-600 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-white/20 rounded-lg">
+                  <X className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base">Tolak Klaim (Reject Claim)</h3>
+                  <p className="text-xs text-red-100">Otorisasi Khusus Owner & Master System</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setRejectModalClaim(null)}
+                className="p-1.5 text-red-200 hover:text-white rounded-lg transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-900 space-y-1">
+                <div>Claim ID: <span className="font-mono font-bold">{rejectModalClaim.id}</span></div>
+                <div>Surat Jalan: <span className="font-mono font-bold">{rejectModalClaim.nomorSuratJalan}</span></div>
+                <div>Material: <span className="font-bold">{rejectModalClaim.material}</span></div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  Alasan Penolakan Klaim *
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  placeholder="Jelaskan alasan penolakan (e.g. Bukti segel kemasan rusak saat diterima ekspedisi, kuantitas aktual terkonfirmasi pas di log security)..."
+                  value={rejectionReasonInput}
+                  onChange={(e) => setRejectionReasonInput(e.target.value)}
+                  className="w-full p-2.5 text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Status klaim akan diubah menjadi Rejected dan tersinkronisasi ke portal Admin & Master System.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setRejectModalClaim(null)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmReject}
+                  className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5"
+                >
+                  <X className="w-4 h-4" />
+                  Konfirmasi Tolak Klaim
+                </button>
               </div>
             </div>
           </div>

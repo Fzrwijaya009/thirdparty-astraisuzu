@@ -69,8 +69,8 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
             <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
             <style>
               @page {
-                size: A4 portrait;
-                margin: 10mm 12mm 10mm 12mm;
+                size: A4 landscape;
+                margin: 8mm 10mm 8mm 10mm;
               }
               * {
                 box-sizing: border-box;
@@ -125,19 +125,19 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
     }
   };
 
-  // Method 2: Direct PDF File Download using jsPDF
+  // Method 2: Direct PDF File Download using jsPDF (A4 Landscape)
   const handleDownloadPdf = () => {
     setIsGeneratingPdf(true);
     try {
       const doc = new jsPDF({
-        orientation: 'portrait',
+        orientation: 'landscape',
         unit: 'mm',
-        format: 'a4'
+        format: 'a4' // 297mm x 210mm
       });
 
       // Header Astra Isuzu with official logo
       try {
-        doc.addImage(ASTRA_ISUZU_LOGO_DATA_URI, 'PNG', 15, 9, 38, 9);
+        doc.addImage(ASTRA_ISUZU_LOGO_DATA_URI, 'PNG', 15, 9, 44, 10);
       } catch (err) {
         console.warn('PDF logo drawing fallback:', err);
       }
@@ -145,52 +145,57 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(13);
       doc.setTextColor(0, 91, 172); // Astra Blue
-      doc.text('PT ASTRA INTERNATIONAL TBK - ISUZU', 58, 15);
+      doc.text('PT ASTRA INTERNATIONAL TBK - ISUZU', 64, 15);
 
       doc.setFontSize(8);
       doc.setTextColor(100, 116, 139);
-      doc.text('DEPARTEMEN RETAIL & PART SERVICES • LOGISTIC & RECONCILIATION', 58, 19);
-      doc.text('Jl. Danau Sunter Utara Blok O3 Kav. 30, Sunter II, Jakarta Utara 14350', 58, 23);
+      doc.text('TP-SYNCS • THIRD PARTY SYNCHRONIZE SYSTEM', 64, 19);
+      doc.text('DEPARTEMEN RETAIL & PART SERVICES • Jl. Danau Sunter Utara Blok O3 Kav. 30, Sunter II, Jakarta 14350', 64, 23);
 
       doc.setDrawColor(30, 41, 59);
       doc.setLineWidth(0.6);
-      doc.line(15, 27, 195, 27);
+      doc.line(15, 27, 282, 27);
 
       // Title
       doc.setFontSize(11);
       doc.setTextColor(17, 24, 39);
-      doc.text('BERITA ACARA REKONSILIASI PENERIMAAN FISIK SPAREPART', 105, 37, { align: 'center' });
+      doc.text('BERITA ACARA REKONSILIASI PENERIMAAN FISIK SPAREPART', 148.5, 35, { align: 'center' });
 
       // Metadata
       doc.setFontSize(8);
       doc.setFont('helvetica', 'normal');
       doc.setFillColor(248, 250, 252);
-      doc.rect(15, 41, 180, 16, 'F');
+      doc.rect(15, 39, 267, 15, 'F');
       doc.setDrawColor(226, 232, 240);
-      doc.rect(15, 41, 180, 16, 'S');
+      doc.rect(15, 39, 267, 15, 'S');
 
-      doc.text(`No. Surat Jalan : ${data.nomorSuratJalan || items[0]?.nomorSuratJalan || '-'}`, 18, 46);
-      doc.text(`Shipment SAP    : ${items[0]?.shipmentNumber || '-'}`, 18, 51);
-      doc.text(`Customer/Plant  : ${(data.customerName || items[0]?.name || '-').substring(0, 35)} (${items[0]?.plant || 'I300'})`, 100, 46);
-      doc.text(`Tgl Selesai Cek : ${data.completedDate || new Date().toISOString().split('T')[0]}`, 100, 51);
+      doc.text(`No. Surat Jalan : ${data.nomorSuratJalan || items[0]?.nomorSuratJalan || '-'}`, 18, 44);
+      doc.text(`Delivery (No)   : ${items[0]?.delivery || '-'}`, 18, 49);
+      doc.text(`Shipment SAP    : ${items[0]?.shipmentNumber || '-'}`, 95, 44);
+      doc.text(`Petugas Checker : ${data.checkerName || 'Checker Gudang'}`, 95, 49);
+      doc.text(`Customer/Plant  : ${(data.customerName || items[0]?.name || '-').substring(0, 40)} (${items[0]?.plant || 'I300'})`, 180, 44);
+      doc.text(`Tgl Selesai Cek : ${data.completedDate || new Date().toISOString().split('T')[0]}`, 180, 49);
 
       // Table Header
-      let y = 64;
+      let y = 60;
       doc.setFillColor(241, 245, 249);
-      doc.rect(15, y - 4, 180, 7, 'F');
+      doc.rect(15, y - 4, 267, 7, 'F');
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.5);
       doc.setTextColor(30, 41, 59);
 
       doc.text('NO', 17, y);
-      doc.text('PART NUMBER', 26, y);
-      doc.text('DESKRIPSI SPAREPART', 65, y);
-      doc.text('QTY SJ', 128, y, { align: 'center' });
-      doc.text('QTY FISIK', 145, y, { align: 'center' });
-      doc.text('SELISIH', 162, y, { align: 'center' });
-      doc.text('STATUS', 182, y, { align: 'center' });
+      doc.text('NO SURAT JALAN', 25, y);
+      doc.text('DELIVERY (NO)', 55, y);
+      doc.text('PART NUMBER', 80, y);
+      doc.text('DESKRIPSI SPAREPART', 115, y);
+      doc.text('QTY SJ', 198, y, { align: 'center' });
+      doc.text('QTY FISIK', 216, y, { align: 'center' });
+      doc.text('SELISIH', 234, y, { align: 'center' });
+      doc.text('UOM', 250, y, { align: 'center' });
+      doc.text('STATUS', 268, y, { align: 'center' });
 
-      doc.line(15, y + 2, 195, y + 2);
+      doc.line(15, y + 2, 282, y + 2);
 
       // Table Rows
       y += 6;
@@ -198,56 +203,61 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
       doc.setFontSize(7);
 
       items.forEach((item, index) => {
-        if (y > 250) {
+        if (y > 175) {
           doc.addPage();
           y = 20;
         }
 
         const actual = item.qtyAktual ?? item.quantity;
-        const diff = item.discrepancyQty || (actual < item.quantity ? item.quantity - actual : 0);
+        const diff = item.discrepancyQty || (actual < item.quantity ? item.quantity - actual : actual > item.quantity ? actual - item.quantity : 0);
+        const isProblem = actual !== item.quantity;
+        const sign = actual > item.quantity ? '+' : actual < item.quantity ? '-' : '';
 
         doc.text(String(index + 1), 17, y);
-        doc.text(item.material, 26, y);
-        doc.text(item.materialDescription.substring(0, 36), 65, y);
-        doc.text(String(item.quantity), 128, y, { align: 'center' });
-        doc.text(String(actual), 145, y, { align: 'center' });
-        doc.text(diff > 0 ? `-${diff}` : '0', 162, y, { align: 'center' });
-        doc.text(diff > 0 ? 'SHORTAGE' : 'SESUAI', 182, y, { align: 'center' });
+        doc.text(item.nomorSuratJalan || '-', 25, y);
+        doc.text(item.delivery || '-', 55, y);
+        doc.text(item.material, 80, y);
+        doc.text(item.materialDescription.substring(0, 45), 115, y);
+        doc.text(String(item.quantity), 198, y, { align: 'center' });
+        doc.text(String(actual), 216, y, { align: 'center' });
+        doc.text(isProblem ? `${sign}${diff}` : '0', 234, y, { align: 'center' });
+        doc.text(item.handlingUnitUom || 'PC', 250, y, { align: 'center' });
+        doc.text(isProblem ? (actual < item.quantity ? 'SHORTAGE' : 'OVERAGE') : 'SESUAI', 268, y, { align: 'center' });
 
         doc.setDrawColor(241, 245, 249);
-        doc.line(15, y + 2, 195, y + 2);
+        doc.line(15, y + 2, 282, y + 2);
         y += 6;
       });
 
       // Total summary row
       doc.setDrawColor(148, 163, 184);
-      doc.line(15, y, 195, y);
+      doc.line(15, y, 282, y);
       y += 4;
       doc.setFont('helvetica', 'bold');
-      doc.text('TOTAL KUANTITAS:', 65, y);
-      doc.text(String(totalQtySuratJalan), 128, y, { align: 'center' });
-      doc.text(String(totalQtyAktual), 145, y, { align: 'center' });
-      doc.text(totalShortage > 0 ? `-${totalShortage}` : '0', 162, y, { align: 'center' });
+      doc.text('TOTAL KUANTITAS:', 115, y);
+      doc.text(String(totalQtySuratJalan), 198, y, { align: 'center' });
+      doc.text(String(totalQtyAktual), 216, y, { align: 'center' });
+      doc.text(totalShortage > 0 ? `-${totalShortage}` : '0', 234, y, { align: 'center' });
 
       // Signatures
-      y += 18;
-      if (y > 240) {
+      y += 16;
+      if (y > 170) {
         doc.addPage();
-        y = 30;
+        y = 25;
       }
 
-      doc.setFontSize(7.5);
-      doc.text('Petugas Checker Gudang', 40, y, { align: 'center' });
-      doc.text('Ekspedisi / Pengemudi', 105, y, { align: 'center' });
-      doc.text('Part Head', 170, y, { align: 'center' });
+      doc.setFontSize(8);
+      doc.text('Petugas Checker Gudang', 60, y, { align: 'center' });
+      doc.text('Ekspedisi / Pengemudi', 148.5, y, { align: 'center' });
+      doc.text('Part Head', 237, y, { align: 'center' });
 
-      doc.line(25, y + 20, 55, y + 20);
-      doc.line(90, y + 20, 120, y + 20);
-      doc.line(155, y + 20, 185, y + 20);
+      doc.line(35, y + 18, 85, y + 18);
+      doc.line(123.5, y + 18, 173.5, y + 18);
+      doc.line(212, y + 18, 262, y + 18);
 
-      doc.text(`(${data.checkerName || 'Checker'})`, 40, y + 24, { align: 'center' });
-      doc.text('( ........................... )', 105, y + 24, { align: 'center' });
-      doc.text('( ........................... )', 170, y + 24, { align: 'center' });
+      doc.text(`(${data.checkerName || 'Checker Gudang'})`, 60, y + 22, { align: 'center' });
+      doc.text('( ........................... )', 148.5, y + 22, { align: 'center' });
+      doc.text('( ........................... )', 237, y + 22, { align: 'center' });
 
       doc.save(`Berita_Acara_Rekonsiliasi_${data.nomorSuratJalan || 'SJ'}.pdf`);
     } catch (err) {
@@ -260,7 +270,7 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto no-print-overlay">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full my-8 overflow-hidden border border-slate-200">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full my-8 overflow-hidden border border-slate-200">
         {/* Modal Controls Header */}
         <div className="bg-slate-900 text-white px-6 py-4 flex flex-wrap items-center justify-between gap-3 no-print">
           <div className="flex items-center gap-3">
@@ -403,6 +413,8 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
             <thead>
               <tr className="bg-slate-100 border-b border-slate-300 font-bold text-slate-700">
                 <th className="py-2 px-3 border-r border-slate-300 text-center w-10">No</th>
+                <th className="py-2 px-3 border-r border-slate-300">No. Surat Jalan</th>
+                <th className="py-2 px-3 border-r border-slate-300">Delivery (No)</th>
                 <th className="py-2 px-3 border-r border-slate-300">Part Number (Material)</th>
                 <th className="py-2 px-3 border-r border-slate-300">Deskripsi Sparepart</th>
                 <th className="py-2 px-3 border-r border-slate-300 text-center">Qty SJ</th>
@@ -424,6 +436,8 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
                 return (
                   <tr key={item.id} className={isProblem ? 'bg-red-50/70 font-medium' : ''}>
                     <td className="py-2 px-3 border-r border-slate-200 text-center">{idx + 1}</td>
+                    <td className="py-2 px-3 border-r border-slate-200 font-mono text-slate-700 font-semibold">{item.nomorSuratJalan || '-'}</td>
+                    <td className="py-2 px-3 border-r border-slate-200 font-mono text-slate-700">{item.delivery || '-'}</td>
                     <td className="py-2 px-3 border-r border-slate-200 font-mono font-semibold text-slate-900">
                       {item.material}
                     </td>
@@ -463,7 +477,7 @@ export const PrintSlipModal: React.FC<PrintSlipModalProps> = ({ isOpen, onClose,
             </tbody>
             <tfoot>
               <tr className="bg-slate-100 font-bold border-t-2 border-slate-300 text-slate-900">
-                <td colSpan={3} className="py-2 px-3 text-right border-r border-slate-300">
+                <td colSpan={5} className="py-2 px-3 text-right border-r border-slate-300">
                   TOTAL KUANTITAS:
                 </td>
                 <td className="py-2 px-3 text-center border-r border-slate-300">{totalQtySuratJalan}</td>

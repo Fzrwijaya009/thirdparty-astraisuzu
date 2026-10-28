@@ -345,7 +345,7 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
                           {item.materialDescription}
                         </div>
                         <div className="text-[11px] text-slate-500 mt-0.5">
-                          SJ: <span className="font-mono font-bold text-slate-700">{item.nomorSuratJalan}</span> • Cust: {item.name}
+                          SJ: <span className="font-mono font-bold text-slate-700">{item.nomorSuratJalan}</span> • Deliv: <span className="font-mono font-bold text-slate-700">{item.delivery || '-'}</span> • Cust: {item.name}
                         </div>
                       </div>
                     </div>
@@ -450,7 +450,7 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
                 <th className="py-3 px-3 text-center">Selisih</th>
                 <th className="py-3 px-3">UoM</th>
                 <th className="py-3 px-3">No. Surat Jalan</th>
-                <th className="py-3 px-3">Delivery</th>
+                <th className="py-3 px-3">Delivery (No)</th>
                 <th className="py-3 px-3">Customer / Cabang</th>
                 <th className="py-3 px-3 text-center">Status Rekonsiliasi</th>
               </tr>

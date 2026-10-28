@@ -65,7 +65,11 @@ interface AppContextType {
   submitClaimDocs: (claimId: string, docs: ClaimDocuments) => void;
   analyzeClaim: (claimId: string, notes: string) => { success: boolean; message?: string };
   approveClaim: (claimId: string, notes?: string) => { success: boolean; message?: string };
+  rejectClaim: (claimId: string, reason: string) => { success: boolean; message?: string };
   deleteClaim: (claimId: string) => { success: boolean; message?: string };
+
+  // Invoice Management (Owner & Master System only)
+  createInvoice: (itemIds: string[], invoiceNumber: string, notes?: string) => { success: boolean; message?: string };
 
   // System Data Management
   clearShipmentsData: () => Promise<void>;
@@ -631,6 +635,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const hasDiscrepancy = isShortage || isOverage;
         const diff = Math.abs(actualQty - item.quantity);
 
+        const claimId = hasDiscrepancy ? `CLM-${todayStr.replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}` : undefined;
+
         const updatedItem: SuratJalanItem = {
           ...item,
           status: 'completed',
@@ -639,7 +645,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           hasDiscrepancy,
           discrepancyQty: diff,
           checkedBy: currentUser?.displayName || 'Checker Gudang',
-          completedDate: todayStr
+          completedDate: todayStr,
+          claimStatus: hasDiscrepancy ? 'claimed' : 'unclaimed',
+          claimId
         };
 
         completedItemsList.push(updatedItem);
@@ -650,12 +658,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
 
         // Requirement 3: Item problem shortage (-) maupun overage (+) otomatis ter-create ke Return Sales
-        if (hasDiscrepancy) {
+        if (hasDiscrepancy && claimId) {
           discrepancyItemsList.push(updatedItem);
 
           const jenisClaim: JenisClaim = isOverage ? 'Claim Lebih' : 'Claim Kurang';
           const claimRecord: ReturnSalesClaim = {
-            id: `CLM-${todayStr.replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`,
+            id: claimId,
             shipmentItemId: item.id,
             nomorSuratJalan: item.nomorSuratJalan,
             shipmentNumber: item.shipmentNumber,
@@ -755,10 +763,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ? targetItem.quantity - targetItem.qtyAktual
       : 1;
 
-    const updatedItem = {
+    // Check if claim already exists for this item
+    const existingClaim = claims.find(c => c.shipmentItemId === data.shipmentItemId);
+    const claimId = existingClaim ? existingClaim.id : `CLM-${todayStr.replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`;
+
+    const updatedItem: SuratJalanItem = {
       ...targetItem,
       hasDiscrepancy: true,
-      discrepancyQty: diff
+      discrepancyQty: diff,
+      claimStatus: 'claimed',
+      claimId: claimId
     };
 
     setDoc(doc(db, 'shipments', targetItem.id), cleanFirestoreData(updatedItem)).catch(e => {
@@ -766,10 +780,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     setItems(prev => prev.map(i => i.id === targetItem.id ? updatedItem : i));
-
-    // Check if claim already exists for this item
-    const existingClaim = claims.find(c => c.shipmentItemId === data.shipmentItemId);
-    const claimId = existingClaim ? existingClaim.id : `CLM-${todayStr.replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`;
 
     const nowIso = new Date().toISOString();
     const submitter = currentUser?.displayName || (currentUser?.role === 'admin' ? `Admin (${currentUser.customerName})` : 'User');
@@ -823,11 +833,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const submitterName = currentUser?.displayName || 'Admin Checker';
     setClaims(prev => prev.map(claim => {
       if (claim.id === claimId) {
+        const isReupload = Boolean(claim.analyzedAt);
         const updated: ReturnSalesClaim = {
           ...claim,
           status: 'inprogress' as const,
           submittedDate: claim.submittedDate || nowIso,
           submittedBy: claim.submittedBy || submitterName,
+          reSubmittedAt: isReupload ? nowIso : claim.reSubmittedAt,
+          hasAdminReupload: isReupload,
           documents: { ...claim.documents, ...docs }
         };
         setDoc(doc(db, 'return_sales', claimId), cleanFirestoreData(updated)).catch(e => {
@@ -857,7 +870,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...claim,
           analyzedAt: nowIso,
           analyzedBy: analyst,
-          analisaNotes: notes
+          analisaNotes: notes,
+          hasAdminReupload: false // Reset flag once analyzed
         };
         setDoc(doc(db, 'return_sales', claimId), cleanFirestoreData(updated)).catch(e => {
           handleFirestoreError(e, OperationType.UPDATE, `return_sales/${claimId}`);
@@ -900,6 +914,77 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
 
     return { success: true };
+  };
+
+  // Requirement 4: Reject Claim oleh Owner & Master System
+  const rejectClaim = (claimId: string, reason: string): { success: boolean; message?: string } => {
+    if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'master')) {
+      return {
+        success: false,
+        message: 'Akses Ditolak: Hanya akun Owner atau Master System yang dapat menolak klaim.'
+      };
+    }
+    if (!reason.trim()) {
+      return { success: false, message: 'Alasan penolakan klaim wajib diisi.' };
+    }
+
+    const nowIso = new Date().toISOString();
+    const rejecter = currentUser.displayName || (currentUser.role === 'owner' ? 'Owner Part Services' : 'Master System');
+
+    setClaims(prev => prev.map(claim => {
+      if (claim.id === claimId) {
+        const updated: ReturnSalesClaim = {
+          ...claim,
+          status: 'rejected' as const,
+          rejectedBy: rejecter,
+          rejectedAt: nowIso,
+          rejectionReason: reason.trim()
+        };
+        setDoc(doc(db, 'return_sales', claimId), cleanFirestoreData(updated)).catch(e => {
+          handleFirestoreError(e, OperationType.UPDATE, `return_sales/${claimId}`);
+        });
+        return updated;
+      }
+      return claim;
+    }));
+
+    return { success: true, message: 'Klaim berhasil ditolak.' };
+  };
+
+  // Requirement 6: Create Invoice oleh Owner & Master System
+  const createInvoice = (itemIds: string[], invoiceNumber: string, notes?: string): { success: boolean; message?: string } => {
+    if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'master')) {
+      return {
+        success: false,
+        message: 'Akses Ditolak: Hanya akun Owner atau Master System yang berwenang memproses invoice.'
+      };
+    }
+    if (!invoiceNumber.trim()) {
+      return { success: false, message: 'Nomor invoice wajib diisi.' };
+    }
+
+    const nowIso = new Date().toISOString();
+    const invBy = currentUser.displayName || (currentUser.role === 'owner' ? 'Owner Part Services' : 'Master System');
+
+    setItems(prev => prev.map(item => {
+      if (itemIds.includes(item.id)) {
+        const updated: SuratJalanItem = {
+          ...item,
+          invoiceStatus: 'invoiced',
+          invoiceNumber: invoiceNumber.trim(),
+          invoicedAt: nowIso,
+          invoicedBy: invBy,
+          invoiceNotes: notes || ''
+        };
+        setDoc(doc(db, 'shipments', item.id), cleanFirestoreData(updated)).catch(e => {
+          handleFirestoreError(e, OperationType.UPDATE, `shipments/${item.id}`);
+        });
+        return updated;
+      }
+      return item;
+    }));
+
+    return { success: true, message: `Berhasil membuat invoice ${invoiceNumber} untuk ${itemIds.length} item.` };
   };
 
   // Requirement 3: Owner & Master memiliki wewenang menghapus klaim
@@ -977,7 +1062,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         submitClaimDocs,
         analyzeClaim,
         approveClaim,
+        rejectClaim,
         deleteClaim,
+        createInvoice,
         clearShipmentsData,
         clearClaimsData,
         clearAllData,
