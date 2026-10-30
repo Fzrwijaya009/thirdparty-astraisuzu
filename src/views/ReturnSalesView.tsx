@@ -25,10 +25,13 @@ import {
   FileCheck2,
   Calendar,
   AlertCircle,
-  ZoomIn
+  ZoomIn,
+  Truck
 } from 'lucide-react';
 import { exportClaimsToExcel } from '../utils/excel';
 import { calculateLeadTime, formatDateTimeIndo } from '../utils/leadtime';
+import { compressImageFile } from '../utils/imageCompressor';
+import { SuratPengantarGantiPartModal } from '../components/SuratPengantarGantiPartModal';
 
 export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> = () => {
   const { 
@@ -58,6 +61,10 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
   const [fotoDetailItemName, setFotoDetailItemName] = useState('');
   const [notes, setNotes] = useState('');
 
+  // Requirement 5: Replacement / Ganti Part modal
+  const [activeReplacementClaim, setActiveReplacementClaim] = useState<ReturnSalesClaim | null>(null);
+  const [isCompressing, setIsCompressing] = useState<string | null>(null);
+
   // Form state for Owner Analisa & Approval
   const [analisaNotesInput, setAnalisaNotesInput] = useState('');
   const [approvalNotesInput, setApprovalNotesInput] = useState('');
@@ -69,6 +76,82 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
 
   // Image zoom lightbox
   const [zoomedImage, setZoomedImage] = useState<{ url: string; title: string } | null>(null);
+
+  // Requirement 4: Buka gambar di jendela baru google/browser dengan resolusi penuh
+  const openImageInNewWindow = (dataUrl: string, title: string) => {
+    if (!dataUrl) return;
+    try {
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(`
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>${title} - Astra Isuzu TP-SYNCS</title>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <style>
+                * { box-sizing: border-box; }
+                body {
+                  margin: 0;
+                  background-color: #0b1120;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                  min-height: 100vh;
+                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                  color: #e2e8f0;
+                  padding: 20px;
+                }
+                .bar {
+                  display: flex;
+                  align-items: center;
+                  justify-content: space-between;
+                  width: 100%;
+                  max-width: 900px;
+                  margin-bottom: 14px;
+                  padding: 10px 18px;
+                  background: #1e293b;
+                  border-radius: 8px;
+                  border: 1px solid #334155;
+                }
+                .title { font-weight: 700; font-size: 13px; color: #38bdf8; }
+                .sub { font-size: 11px; color: #94a3b8; }
+                .img-wrapper {
+                  max-width: 95vw;
+                  max-height: 85vh;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  overflow: auto;
+                }
+                img {
+                  max-width: 100%;
+                  max-height: 85vh;
+                  object-fit: contain;
+                  border-radius: 8px;
+                  box-shadow: 0 20px 45px rgba(0,0,0,0.7);
+                  border: 1px solid #334155;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="bar">
+                <div class="title">${title}</div>
+                <div class="sub">PT Astra International Tbk - Isuzu (TP-SYNCS)</div>
+              </div>
+              <div class="img-wrapper">
+                <img src="${dataUrl}" alt="${title}" />
+              </div>
+            </body>
+          </html>
+        `);
+        win.document.close();
+        return;
+      }
+    } catch {}
+    setZoomedImage({ url: dataUrl, title });
+  };
 
   const isOwnerOrMaster = currentUser?.role === 'owner' || currentUser?.role === 'master';
   const isAdmin = currentUser?.role === 'admin';
@@ -115,25 +198,44 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
     setActionSuccessMsg('');
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'sj' | 'dn' | 'item') => {
+  // Requirement 3: Compress image client-side before submission so Firestore document size is safe & syncs reliably to Owner
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'sj' | 'dn' | 'item') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (uploadEvent) => {
-      const resultUrl = uploadEvent.target?.result as string;
+    try {
+      setIsCompressing(type);
+      const compressedUrl = await compressImageFile(file, 1024, 1024, 0.75);
       if (type === 'sj') {
-        setFotoSuratJalanUrl(resultUrl);
+        setFotoSuratJalanUrl(compressedUrl);
         setFotoSuratJalanName(file.name);
       } else if (type === 'dn') {
-        setFotoDnDusUrl(resultUrl);
+        setFotoDnDusUrl(compressedUrl);
         setFotoDnDusName(file.name);
       } else if (type === 'item') {
-        setFotoDetailItemUrl(resultUrl);
+        setFotoDetailItemUrl(compressedUrl);
         setFotoDetailItemName(file.name);
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Error compressing image:', err);
+      const reader = new FileReader();
+      reader.onload = (uploadEvent) => {
+        const resultUrl = uploadEvent.target?.result as string;
+        if (type === 'sj') {
+          setFotoSuratJalanUrl(resultUrl);
+          setFotoSuratJalanName(file.name);
+        } else if (type === 'dn') {
+          setFotoDnDusUrl(resultUrl);
+          setFotoDnDusName(file.name);
+        } else if (type === 'item') {
+          setFotoDetailItemUrl(resultUrl);
+          setFotoDetailItemName(file.name);
+        }
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsCompressing(null);
+    }
   };
 
   const handleUseSamplePhotos = () => {
@@ -171,7 +273,7 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
     setActiveTab('inprogress');
   };
 
-  // Requirement 5: Owner melakukan Analisa
+  // Requirement 2: Owner melakukan Analisa - simpan perubahan & automatis close popup menu
   const handleSaveAnalisa = () => {
     if (!activeModalClaim) return;
     if (!analisaNotesInput.trim()) {
@@ -183,15 +285,8 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
     if (!res.success) {
       alert(res.message);
     } else {
-      setActionSuccessMsg('Analisa Owner berhasil disimpan dan tersinkronisasi.');
-      // Update local active claim reference
-      setActiveModalClaim(prev => prev ? {
-        ...prev,
-        analyzedAt: new Date().toISOString(),
-        analyzedBy: currentUser?.displayName || 'Owner Part Services',
-        analisaNotes: analisaNotesInput.trim()
-      } : null);
-      setTimeout(() => setActionSuccessMsg(''), 3000);
+      // Automatis menutup popup menu
+      setActiveModalClaim(null);
     }
   };
 
@@ -590,13 +685,29 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
                     )}
 
                     {claim.status === 'completed' && (
-                      <button
-                        onClick={() => handleOpenModal(claim, 'view')}
-                        className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition flex items-center justify-center gap-1.5"
-                      >
-                        <Eye className="w-4 h-4" />
-                        Lihat Rincian & Riwayat Lead Time
-                      </button>
+                      <div className="space-y-2">
+                        {/* Requirement 5: Fitur Ganti Part (Surat Pengantar) */}
+                        <button
+                          onClick={() => setActiveReplacementClaim(claim)}
+                          className={`w-full py-2 px-3 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-xs ${
+                            claim.replacementStatus === 'completed'
+                              ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white'
+                          }`}
+                        >
+                          <Truck className="w-4 h-4" />
+                          {claim.replacementStatus === 'completed'
+                            ? 'Surat Pengantar (Barang Sudah Diganti ✓)'
+                            : 'Ganti Part (Surat Pengantar)'}
+                        </button>
+                        <button
+                          onClick={() => handleOpenModal(claim, 'view')}
+                          className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition flex items-center justify-center gap-1.5"
+                        >
+                          <Eye className="w-4 h-4" />
+                          Lihat Rincian & Riwayat Lead Time
+                        </button>
+                      </div>
                     )}
 
                     {claim.status === 'rejected' && (
@@ -834,13 +945,28 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
                         )}
 
                         {claim.status === 'completed' && (
-                          <button
-                            onClick={() => handleOpenModal(claim, 'view')}
-                            className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition flex items-center gap-1 mx-auto"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            Detail & Lead Time
-                          </button>
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                            {/* Requirement 5: Fitur Ganti Part (Surat Pengantar) */}
+                            <button
+                              onClick={() => setActiveReplacementClaim(claim)}
+                              title={claim.replacementStatus === 'completed' ? 'Lihat Surat Pengantar Pergantian Part' : 'Buat Surat Pengantar Pergantian Part'}
+                              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition flex items-center gap-1 shadow-2xs ${
+                                claim.replacementStatus === 'completed'
+                                  ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300'
+                                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+                              }`}
+                            >
+                              <Truck className="w-3.5 h-3.5" />
+                              {claim.replacementStatus === 'completed' ? 'Surat Pengantar ✓' : 'Ganti Part'}
+                            </button>
+                            <button
+                              onClick={() => handleOpenModal(claim, 'view')}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-lg transition flex items-center gap-1"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              Detail
+                            </button>
+                          </div>
                         )}
 
                         {claim.status === 'rejected' && (
@@ -1063,20 +1189,51 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
                       </p>
                     </div>
 
+                    {isCompressing === 'sj' && (
+                      <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg text-[11px] font-medium text-blue-700 flex items-center gap-1.5 mb-2">
+                        <Clock className="w-3.5 h-3.5 animate-spin shrink-0 text-blue-600" />
+                        Mengoptimalkan gambar...
+                      </div>
+                    )}
+
                     {fotoSuratJalanUrl ? (
-                      <div className="relative group rounded-lg overflow-hidden border border-slate-200 mb-2">
-                        <img
-                          src={fotoSuratJalanUrl}
-                          alt="Foto Surat Jalan"
-                          className="h-28 w-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setZoomedImage({ url: fotoSuratJalanUrl, title: 'Foto Surat Jalan' })}
-                          className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-semibold transition"
-                        >
-                          <ZoomIn className="w-4 h-4 mr-1" /> Perbesar
-                        </button>
+                      <div className="mb-2">
+                        <div className="relative group rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                          <img
+                            src={fotoSuratJalanUrl}
+                            alt="Foto Surat Jalan"
+                            className="h-28 w-full object-cover cursor-pointer"
+                            onClick={() => openImageInNewWindow(fotoSuratJalanUrl, 'Foto Surat Jalan')}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => openImageInNewWindow(fotoSuratJalanUrl, 'Foto Surat Jalan')}
+                            className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-semibold transition gap-1.5"
+                          >
+                            <ExternalLink className="w-4 h-4" /> Buka Jendela Baru
+                          </button>
+                        </div>
+
+                        {/* Interactive Action Buttons */}
+                        <div className="grid grid-cols-2 gap-1.5 mt-2">
+                          <button
+                            type="button"
+                            onClick={() => setZoomedImage({ url: fotoSuratJalanUrl, title: 'Foto Surat Jalan' })}
+                            className="py-1 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition"
+                          >
+                            <ZoomIn className="w-3 h-3 text-slate-600" />
+                            Perbesar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openImageInNewWindow(fotoSuratJalanUrl, 'Foto Surat Jalan')}
+                            className="py-1 px-2 bg-blue-50 hover:bg-blue-100 text-[#005BAC] rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 border border-blue-200 transition"
+                            title="Buka gambar di tab/jendela baru browser"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Jendela Baru
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="h-24 bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center text-slate-400 mb-2">
@@ -1109,20 +1266,51 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
                       </p>
                     </div>
 
+                    {isCompressing === 'dn' && (
+                      <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg text-[11px] font-medium text-blue-700 flex items-center gap-1.5 mb-2">
+                        <Clock className="w-3.5 h-3.5 animate-spin shrink-0 text-blue-600" />
+                        Mengoptimalkan gambar...
+                      </div>
+                    )}
+
                     {fotoDnDusUrl ? (
-                      <div className="relative group rounded-lg overflow-hidden border border-slate-200 mb-2">
-                        <img
-                          src={fotoDnDusUrl}
-                          alt="Foto DN Pada Dus"
-                          className="h-28 w-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setZoomedImage({ url: fotoDnDusUrl, title: 'Foto DN Pada Dus' })}
-                          className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-semibold transition"
-                        >
-                          <ZoomIn className="w-4 h-4 mr-1" /> Perbesar
-                        </button>
+                      <div className="mb-2">
+                        <div className="relative group rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                          <img
+                            src={fotoDnDusUrl}
+                            alt="Foto DN Pada Dus"
+                            className="h-28 w-full object-cover cursor-pointer"
+                            onClick={() => openImageInNewWindow(fotoDnDusUrl, 'Foto DN Pada Dus')}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => openImageInNewWindow(fotoDnDusUrl, 'Foto DN Pada Dus')}
+                            className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-semibold transition gap-1.5"
+                          >
+                            <ExternalLink className="w-4 h-4" /> Buka Jendela Baru
+                          </button>
+                        </div>
+
+                        {/* Interactive Action Buttons */}
+                        <div className="grid grid-cols-2 gap-1.5 mt-2">
+                          <button
+                            type="button"
+                            onClick={() => setZoomedImage({ url: fotoDnDusUrl, title: 'Foto DN Pada Dus' })}
+                            className="py-1 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition"
+                          >
+                            <ZoomIn className="w-3 h-3 text-slate-600" />
+                            Perbesar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openImageInNewWindow(fotoDnDusUrl, 'Foto DN Pada Dus')}
+                            className="py-1 px-2 bg-blue-50 hover:bg-blue-100 text-[#005BAC] rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 border border-blue-200 transition"
+                            title="Buka gambar di tab/jendela baru browser"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Jendela Baru
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="h-24 bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center text-slate-400 mb-2">
@@ -1155,20 +1343,51 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
                       </p>
                     </div>
 
+                    {isCompressing === 'item' && (
+                      <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg text-[11px] font-medium text-blue-700 flex items-center gap-1.5 mb-2">
+                        <Clock className="w-3.5 h-3.5 animate-spin shrink-0 text-blue-600" />
+                        Mengoptimalkan gambar...
+                      </div>
+                    )}
+
                     {fotoDetailItemUrl ? (
-                      <div className="relative group rounded-lg overflow-hidden border border-slate-200 mb-2">
-                        <img
-                          src={fotoDetailItemUrl}
-                          alt="Foto Detail Item"
-                          className="h-28 w-full object-cover"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setZoomedImage({ url: fotoDetailItemUrl, title: 'Foto Detail Fisik Item' })}
-                          className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-semibold transition"
-                        >
-                          <ZoomIn className="w-4 h-4 mr-1" /> Perbesar
-                        </button>
+                      <div className="mb-2">
+                        <div className="relative group rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                          <img
+                            src={fotoDetailItemUrl}
+                            alt="Foto Detail Item"
+                            className="h-28 w-full object-cover cursor-pointer"
+                            onClick={() => openImageInNewWindow(fotoDetailItemUrl, 'Foto Detail Fisik Item')}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => openImageInNewWindow(fotoDetailItemUrl, 'Foto Detail Fisik Item')}
+                            className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-semibold transition gap-1.5"
+                          >
+                            <ExternalLink className="w-4 h-4" /> Buka Jendela Baru
+                          </button>
+                        </div>
+
+                        {/* Interactive Action Buttons */}
+                        <div className="grid grid-cols-2 gap-1.5 mt-2">
+                          <button
+                            type="button"
+                            onClick={() => setZoomedImage({ url: fotoDetailItemUrl, title: 'Foto Detail Fisik Item' })}
+                            className="py-1 px-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition"
+                          >
+                            <ZoomIn className="w-3 h-3 text-slate-600" />
+                            Perbesar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openImageInNewWindow(fotoDetailItemUrl, 'Foto Detail Fisik Item')}
+                            className="py-1 px-2 bg-blue-50 hover:bg-blue-100 text-[#005BAC] rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 border border-blue-200 transition"
+                            title="Buka gambar di tab/jendela baru browser"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            Jendela Baru
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="h-24 bg-slate-50 border-2 border-dashed border-slate-200 rounded-lg flex flex-col items-center justify-center text-slate-400 mb-2">
@@ -1472,6 +1691,15 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
             </div>
           </div>
         </div>
+      )}
+
+      {/* Requirement 5: Surat Pengantar Pergantian Part Modal */}
+      {activeReplacementClaim && (
+        <SuratPengantarGantiPartModal
+          isOpen={Boolean(activeReplacementClaim)}
+          claim={activeReplacementClaim}
+          onClose={() => setActiveReplacementClaim(null)}
+        />
       )}
     </div>
   );

@@ -114,6 +114,12 @@ export interface ReturnSalesClaim {
   rejectedBy?: string;
   rejectedAt?: string;
   rejectionReason?: string;
+  // Replacement / Ganti Part tracking
+  replacementStatus?: 'pending' | 'completed';
+  replacedAt?: string;
+  replacedBy?: string;
+  replacementDocNumber?: string;
+  replacementNotes?: string;
   documents: ClaimDocuments;
 }
 

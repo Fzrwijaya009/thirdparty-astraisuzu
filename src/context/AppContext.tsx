@@ -67,6 +67,8 @@ interface AppContextType {
   approveClaim: (claimId: string, notes?: string) => { success: boolean; message?: string };
   rejectClaim: (claimId: string, reason: string) => { success: boolean; message?: string };
   deleteClaim: (claimId: string) => { success: boolean; message?: string };
+  // Replacement / Ganti Part Management
+  completeReplacement: (claimId: string, docNumber?: string, notes?: string) => { success: boolean; message?: string };
 
   // Invoice Management (Owner & Master System only)
   createInvoice: (itemIds: string[], invoiceNumber: string, notes?: string) => { success: boolean; message?: string };
@@ -999,6 +1001,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true };
   };
 
+  // Requirement 5: Fitur Ganti Part untuk Claim Completed
+  const completeReplacement = (claimId: string, docNumber?: string, notes?: string): { success: boolean; message?: string } => {
+    const nowIso = new Date().toISOString();
+    const officer = currentUser?.displayName || (currentUser?.role === 'owner' ? 'Owner Part Services' : currentUser?.role === 'master' ? 'Master System' : 'Petugas Part Gudang');
+    const autoDocNumber = docNumber || `SPP-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(100 + Math.random() * 900)}`;
+
+    setClaims(prev => prev.map(claim => {
+      if (claim.id === claimId) {
+        const updated: ReturnSalesClaim = {
+          ...claim,
+          replacementStatus: 'completed',
+          replacedAt: nowIso,
+          replacedBy: officer,
+          replacementDocNumber: autoDocNumber,
+          replacementNotes: notes || claim.replacementNotes || 'Barang klaim telah dilakukan serah terima pergantian sparepart fisik.'
+        };
+        setDoc(doc(db, 'return_sales', claimId), cleanFirestoreData(updated)).catch(e => {
+          handleFirestoreError(e, OperationType.UPDATE, `return_sales/${claimId}`);
+        });
+        return updated;
+      }
+      return claim;
+    }));
+
+    return { success: true, message: 'Status pergantian part berhasil ditandai Selesai (Completed).' };
+  };
+
   // Requirement 3 & 4: Master System dan Owner berwenang membersihkan / reset data
   const clearShipmentsData = async () => {
     if (currentUser?.role !== 'owner' && currentUser?.role !== 'master') {
@@ -1064,6 +1093,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         approveClaim,
         rejectClaim,
         deleteClaim,
+        completeReplacement,
         createInvoice,
         clearShipmentsData,
         clearClaimsData,

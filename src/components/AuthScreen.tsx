@@ -96,22 +96,33 @@ export const AuthScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col justify-between relative overflow-hidden selection:bg-blue-200 selection:text-blue-900">
-      {/* Background Decorative Corporate Gradients */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#005BAC]/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-[#ED1B24]/15 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-linear-to-br from-[#040814] via-[#081329] to-[#16060c] flex flex-col justify-between relative overflow-hidden selection:bg-blue-200 selection:text-blue-900">
+      {/* Background Lighting Effects: Astra Blue (#005BAC) & Isuzu Red (#ED1B24) */}
+      <div className="absolute -top-32 -left-32 w-[550px] h-[550px] bg-[#005BAC]/35 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-1/4 left-1/3 w-80 h-80 bg-sky-500/15 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 w-[550px] h-[550px] bg-[#ED1B24]/28 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-1/3 right-1/4 w-72 h-72 bg-rose-500/15 rounded-full blur-[90px] pointer-events-none" />
 
-      {/* Top Corporate Strip */}
-      <div className="h-1.5 w-full bg-linear-to-r from-[#005BAC] via-[#005BAC] to-[#ED1B24]" />
+      {/* High-tech Subtle Grid Overlay */}
+      <div 
+        className="absolute inset-0 opacity-[0.07] pointer-events-none bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.8)_1px,transparent_0)]" 
+        style={{ backgroundSize: '28px 28px' }} 
+      />
+
+      {/* Radial Center Light Flare behind Card */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-gradient-to-r from-blue-600/10 via-transparent to-red-600/10 rounded-full blur-[120px] pointer-events-none" />
+
+      {/* Top Corporate Strip with glowing gradient */}
+      <div className="h-1.5 w-full bg-linear-to-r from-[#005BAC] via-[#0ea5e9] to-[#ED1B24] shadow-[0_0_20px_rgba(14,165,233,0.6)] z-20" />
 
       {/* Main Authentication Container */}
       <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8 z-10">
-        <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
+        <div className="max-w-md w-full bg-white/98 backdrop-blur-md rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7),0_0_40px_-10px_rgba(0,91,172,0.35),0_0_40px_-10px_rgba(237,27,36,0.25)] overflow-hidden border border-white/40 ring-1 ring-slate-900/10 animate-in fade-in zoom-in-95 duration-200">
           
           {/* Logo & Header Section (Requirement 1 & 3: Logo Terlampir & TP-SYNCS branding) */}
-          <div className="p-8 text-center border-b border-slate-100 bg-linear-to-b from-slate-50/80 to-white">
+          <div className="p-8 text-center border-b border-slate-100 bg-linear-to-b from-slate-50/90 to-white">
             <div className="flex justify-center mb-5">
-              <AstraIsuzuLogo className="h-13 sm:h-14 w-auto object-contain" />
+              <AstraIsuzuLogo className="h-13 sm:h-14 w-auto object-contain drop-shadow-xs" />
             </div>
 
             <div className="space-y-0.5">
