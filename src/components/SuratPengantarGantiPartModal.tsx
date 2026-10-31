@@ -53,12 +53,11 @@ export const SuratPengantarGantiPartModal: React.FC<SuratPengantarGantiPartModal
     year: 'numeric'
   });
 
-  // Method 1: Robust Iframe-based Print Trigger (Google Print view without breaking iframe sandbox)
+  // Method 1: Robust Iframe-based Print Trigger (Google Print view formatted strictly for A4 Landscape)
   const handlePrintView = () => {
-    const printableElement = document.getElementById('printable-surat-pengantar');
-    if (!printableElement) {
-      window.print();
-      return;
+    // Automatically synchronize replacement status to completed upon printing
+    if (!isCompleted) {
+      completeReplacement(claim.id, docNumber, notes);
     }
 
     try {
@@ -85,8 +84,8 @@ export const SuratPengantarGantiPartModal: React.FC<SuratPengantarGantiPartModal
             <title>Surat Pengantar Pergantian Part - ${claim.id}</title>
             <style>
               @page {
-                size: A4 portrait;
-                margin: 12mm 15mm;
+                size: A4 landscape;
+                margin: 8mm 10mm;
               }
               * {
                 box-sizing: border-box;
@@ -100,16 +99,16 @@ export const SuratPengantarGantiPartModal: React.FC<SuratPengantarGantiPartModal
                 margin: 0;
                 padding: 0;
                 font-size: 11px;
-                line-height: 1.4;
+                line-height: 1.35;
               }
               .header-table {
                 width: 100%;
-                border-bottom: 2px solid #005BAC;
-                padding-bottom: 8px;
-                margin-bottom: 14px;
+                border-bottom: 2.5px solid #005BAC;
+                padding-bottom: 6px;
+                margin-bottom: 10px;
               }
               .header-logo {
-                height: 38px;
+                height: 36px;
                 width: auto;
               }
               .header-title {
@@ -118,15 +117,15 @@ export const SuratPengantarGantiPartModal: React.FC<SuratPengantarGantiPartModal
               .header-title h1 {
                 margin: 0;
                 font-size: 16px;
-                font-weight: 800;
+                font-weight: 900;
                 color: #005BAC;
-                letter-spacing: -0.3px;
+                letter-spacing: -0.2px;
                 text-transform: uppercase;
               }
               .header-title p {
                 margin: 2px 0 0 0;
                 font-size: 10px;
-                font-weight: 600;
+                font-weight: 700;
                 color: #ED1B24;
               }
               .doc-title-box {
@@ -134,18 +133,18 @@ export const SuratPengantarGantiPartModal: React.FC<SuratPengantarGantiPartModal
                 background-color: #f8fafc;
                 border: 1px solid #cbd5e1;
                 border-radius: 6px;
-                padding: 8px;
-                margin-bottom: 14px;
+                padding: 6px;
+                margin-bottom: 10px;
               }
               .doc-title-box h2 {
                 margin: 0;
                 font-size: 14px;
-                font-weight: 800;
+                font-weight: 900;
                 color: #0f172a;
                 letter-spacing: 0.5px;
               }
               .doc-title-box .doc-no {
-                margin-top: 3px;
+                margin-top: 2px;
                 font-size: 11px;
                 font-weight: 700;
                 color: #005BAC;
@@ -153,41 +152,43 @@ export const SuratPengantarGantiPartModal: React.FC<SuratPengantarGantiPartModal
               }
               .meta-grid {
                 width: 100%;
-                margin-bottom: 14px;
+                margin-bottom: 10px;
                 border: 1px solid #e2e8f0;
                 border-radius: 6px;
                 border-collapse: collapse;
               }
               .meta-grid td {
-                padding: 6px 10px;
+                padding: 5px 8px;
                 border: 1px solid #e2e8f0;
                 font-size: 10.5px;
               }
               .meta-label {
                 color: #64748b;
-                width: 22%;
+                width: 15%;
                 font-weight: 600;
+                background-color: #f8fafc;
               }
               .meta-value {
                 color: #0f172a;
+                width: 35%;
                 font-weight: 700;
               }
               .items-table {
                 width: 100%;
                 border-collapse: collapse;
-                margin-bottom: 14px;
+                margin-bottom: 10px;
               }
               .items-table th {
                 background-color: #005BAC;
                 color: #ffffff;
                 font-size: 10.5px;
                 font-weight: 700;
-                padding: 7px 8px;
+                padding: 6px 8px;
                 text-align: left;
                 border: 1px solid #005BAC;
               }
               .items-table td {
-                padding: 8px;
+                padding: 6px 8px;
                 border: 1px solid #cbd5e1;
                 font-size: 10.5px;
               }
@@ -195,35 +196,36 @@ export const SuratPengantarGantiPartModal: React.FC<SuratPengantarGantiPartModal
                 display: inline-block;
                 background-color: #ecfdf5;
                 color: #047857;
-                font-weight: 800;
-                padding: 3px 8px;
+                font-weight: 900;
+                padding: 2px 8px;
                 border-radius: 4px;
                 border: 1px solid #a7f3d0;
+                font-size: 11px;
               }
               .notes-box {
                 background: #f8fafc;
                 border: 1px solid #cbd5e1;
                 border-radius: 6px;
-                padding: 8px 12px;
-                margin-bottom: 20px;
+                padding: 6px 10px;
+                margin-bottom: 12px;
                 font-size: 10.5px;
               }
               .signatures {
                 width: 100%;
                 border-collapse: collapse;
-                margin-top: 15px;
+                margin-top: 10px;
               }
               .signatures td {
                 width: 33.33%;
                 text-align: center;
                 vertical-align: top;
-                padding: 6px;
+                padding: 4px;
               }
               .sign-box {
                 border: 1px solid #cbd5e1;
                 border-radius: 6px;
-                padding: 10px 8px;
-                min-height: 105px;
+                padding: 8px 6px;
+                min-height: 85px;
                 display: flex;
                 flex-direction: column;
                 justify-content: space-between;
@@ -233,19 +235,150 @@ export const SuratPengantarGantiPartModal: React.FC<SuratPengantarGantiPartModal
                 font-size: 10px;
                 color: #475569;
                 text-transform: uppercase;
-                margin-bottom: 45px;
+                margin-bottom: 40px;
               }
               .sign-name {
                 font-weight: 700;
                 font-size: 10.5px;
                 color: #0f172a;
                 border-top: 1px solid #94a3b8;
-                padding-top: 4px;
+                padding-top: 3px;
               }
             </style>
           </head>
           <body>
-            ${printableElement.innerHTML}
+            <!-- Landscape Header -->
+            <table class="header-table">
+              <tr>
+                <td style="width: 45%; vertical-align: middle;">
+                  <img src="${ASTRA_ISUZU_LOGO_DATA_URI}" class="header-logo" alt="Astra Isuzu" />
+                </td>
+                <td class="header-title" style="width: 55%; vertical-align: middle;">
+                  <h1>THIRD PARTY SYNCHRONIZE SYSTEM</h1>
+                  <p>Departemen Retail & Part Services • PT Astra International Tbk - Isuzu</p>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Document Title -->
+            <div class="doc-title-box">
+              <h2>SURAT PENGANTAR PERGANTIAN PART</h2>
+              <div class="doc-no">
+                Nomor: ${docNumber} &nbsp;•&nbsp; Tanggal: ${currentDateStr} &nbsp;•&nbsp; Status: DISERAHKAN (APPROVED)
+              </div>
+            </div>
+
+            <!-- Landscape Metadata Grid (4 Columns) -->
+            <table class="meta-grid">
+              <tr>
+                <td class="meta-label">No. Claim ID:</td>
+                <td class="meta-value" style="font-family: monospace;">${claim.id}</td>
+                <td class="meta-label">Customer / Penerima:</td>
+                <td class="meta-value">${claim.customerName}</td>
+              </tr>
+              <tr>
+                <td class="meta-label">No. Surat Jalan Asal:</td>
+                <td class="meta-value" style="font-family: monospace;">${claim.nomorSuratJalan}</td>
+                <td class="meta-label">Delivery (No):</td>
+                <td class="meta-value" style="font-family: monospace;">${claim.delivery || '-'}</td>
+              </tr>
+              <tr>
+                <td class="meta-label">No. Shipment SAP:</td>
+                <td class="meta-value" style="font-family: monospace;">${claim.shipmentNumber || '-'}</td>
+                <td class="meta-label">Plant Logistik:</td>
+                <td class="meta-value">${claim.plant || 'Plant I300 Sunter'}</td>
+              </tr>
+              <tr>
+                <td class="meta-label">Jenis Klaim / Status:</td>
+                <td class="meta-value">${claim.jenisClaim || 'Claim Kurang'} (Disetujui)</td>
+                <td class="meta-label">Status Pergantian:</td>
+                <td class="meta-value" style="color: #047857;">PART SUDAH DI GANTI ✓</td>
+              </tr>
+            </table>
+
+            <!-- Landscape Parts Table -->
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th style="width: 4%; text-align: center;">No</th>
+                  <th style="width: 18%;">Part Number</th>
+                  <th style="width: 32%;">Deskripsi Sparepart</th>
+                  <th style="width: 14%;">No. Surat Jalan</th>
+                  <th style="width: 10%;">Delivery (No)</th>
+                  <th style="width: 10%; text-align: center;">Qty Ganti</th>
+                  <th style="width: 6%; text-align: center;">Satuan</th>
+                  <th style="width: 6%; text-align: center;">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="text-align: center; font-weight: 700;">1</td>
+                  <td style="font-weight: 900; font-family: monospace; color: #005BAC;">${claim.material}</td>
+                  <td style="font-weight: 600; color: #1e293b;">${claim.materialDescription}</td>
+                  <td style="font-family: monospace; font-weight: 700;">${claim.nomorSuratJalan}</td>
+                  <td style="font-family: monospace;">${claim.delivery || '-'}</td>
+                  <td style="text-align: center;">
+                    <span class="badge-shortage">${claim.qtyShortage}</span>
+                  </td>
+                  <td style="text-align: center; font-weight: 600;">${claim.uom}</td>
+                  <td style="text-align: center; font-weight: 700; color: #047857;">DIGANTI ✓</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Notes & Owner Analysis -->
+            <div class="notes-box">
+              <div style="font-weight: 700; color: #334155; margin-bottom: 2px;">
+                Catatan Serah Terima Fisik Barang:
+              </div>
+              <div style="color: #0f172a;">
+                ${notes || 'Barang klaim diserahkan sebagai pengganti fisik sesuai persetujuan klaim shortage.'}
+              </div>
+              ${claim.analisaNotes ? `
+                <div style="margin-top: 4px; padding-top: 4px; border-top: 1px dashed #cbd5e1; color: #4338ca; font-size: 10px;">
+                  <strong>Hasil Analisa Owner:</strong> ${claim.analisaNotes}
+                </div>
+              ` : ''}
+              <div style="margin-top: 4px; color: #047857; font-weight: 700; font-size: 10px;">
+                ✓ Part telah diserahterimakan penggantiannya pada: ${currentDateStr} oleh ${claim.replacedBy || currentUser?.displayName || 'Part Head'}
+              </div>
+            </div>
+
+            <!-- Landscape Signatures (3 Columns) -->
+            <table class="signatures">
+              <tr>
+                <td>
+                  <div class="sign-box">
+                    <div class="sign-role">
+                      Diserahkan Oleh<br /><span style="font-size: 9px; font-weight: 600;">(Part Head / Gudang)</span>
+                    </div>
+                    <div class="sign-name">
+                      ${claim.replacedBy || currentUser?.displayName || 'Petugas Gudang / Part Head'}
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="sign-box">
+                    <div class="sign-role">
+                      Pengirim / Ekspedisi<br /><span style="font-size: 9px; font-weight: 600;">(Driver / Kurir)</span>
+                    </div>
+                    <div class="sign-name">
+                      (&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="sign-box">
+                    <div class="sign-role">
+                      Diterima Oleh<br /><span style="font-size: 9px; font-weight: 600;">(Customer / Cabang)</span>
+                    </div>
+                    <div class="sign-name">
+                      ${claim.customerName.length > 30 ? claim.customerName.substring(0, 30) + '...' : claim.customerName}
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </table>
           </body>
         </html>
       `);
@@ -256,163 +389,176 @@ export const SuratPengantarGantiPartModal: React.FC<SuratPengantarGantiPartModal
         iframe.contentWindow?.print();
         setTimeout(() => {
           document.body.removeChild(iframe);
-        }, 1000);
-      }, 350);
+        }, 1200);
+      }, 400);
     } catch {
       window.print();
     }
   };
 
-  // Method 2: Download official PDF via jsPDF
+  // Method 2: Download official PDF via jsPDF in Landscape A4
   const handleDownloadPdf = () => {
+    // Automatically synchronize replacement status to completed upon PDF generation
+    if (!isCompleted) {
+      completeReplacement(claim.id, docNumber, notes);
+    }
+
     setIsGeneratingPdf(true);
     try {
       const pdf = new jsPDF({
-        orientation: 'portrait',
+        orientation: 'landscape',
         unit: 'mm',
         format: 'a4'
       });
 
-      // Top corporate stripe
+      // Top corporate stripe in Landscape (297mm width)
       pdf.setFillColor(0, 91, 172); // Astra Blue
-      pdf.rect(0, 0, 160, 4, 'F');
+      pdf.rect(0, 0, 230, 4, 'F');
       pdf.setFillColor(237, 27, 36); // Isuzu Red
-      pdf.rect(160, 0, 50, 4, 'F');
+      pdf.rect(230, 0, 67, 4, 'F');
 
       // Corporate Logo
       try {
-        pdf.addImage(ASTRA_ISUZU_LOGO_DATA_URI, 'PNG', 14, 10, 48, 14);
+        pdf.addImage(ASTRA_ISUZU_LOGO_DATA_URI, 'PNG', 12, 8, 48, 14);
       } catch {}
 
-      // Header Text
+      // Header Text in Landscape
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(13);
+      pdf.setFontSize(14);
       pdf.setTextColor(0, 91, 172);
-      pdf.text('THIRD PARTY SYNCHRONIZE SYSTEM', 200, 16, { align: 'right' });
-      pdf.setFontSize(9);
+      pdf.text('THIRD PARTY SYNCHRONIZE SYSTEM', 285, 14, { align: 'right' });
+      pdf.setFontSize(9.5);
       pdf.setTextColor(237, 27, 36);
-      pdf.text('Departemen Retail & Part Services • PT Astra International Tbk - Isuzu', 200, 21, { align: 'right' });
+      pdf.text('Departemen Retail & Part Services • PT Astra International Tbk - Isuzu', 285, 20, { align: 'right' });
 
       // Title Banner
       pdf.setDrawColor(203, 213, 225);
       pdf.setFillColor(248, 250, 252);
-      pdf.roundedRect(14, 28, 182, 14, 2, 2, 'FD');
+      pdf.roundedRect(12, 26, 273, 13, 2, 2, 'FD');
 
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(12);
+      pdf.setFontSize(12.5);
       pdf.setTextColor(15, 23, 42);
-      pdf.text('SURAT PENGANTAR PERGANTIAN PART', 105, 35, { align: 'center' });
+      pdf.text('SURAT PENGANTAR PERGANTIAN PART', 148, 32.5, { align: 'center' });
 
-      pdf.setFontSize(8.5);
+      pdf.setFontSize(9);
       pdf.setTextColor(0, 91, 172);
-      pdf.text(`No. Dokumen: ${docNumber}  |  Tanggal: ${currentDateStr}`, 105, 40, { align: 'center' });
+      pdf.text(`Nomor: ${docNumber}   |   Tanggal: ${currentDateStr}   |   Status: PART SUDAH DI GANTI`, 148, 37, { align: 'center' });
 
-      // Metadata Table
+      // Metadata Table (4 Columns in Landscape)
       pdf.setDrawColor(226, 232, 240);
       pdf.setFillColor(255, 255, 255);
-      pdf.rect(14, 46, 182, 28, 'D');
+      pdf.rect(12, 42, 273, 24, 'D');
 
       pdf.setFontSize(8.5);
       pdf.setTextColor(100, 116, 139);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('No. Claim ID:', 18, 52);
-      pdf.text('No. Surat Jalan:', 18, 59);
-      pdf.text('Delivery (No):', 18, 66);
-      pdf.text('Customer Tujuan:', 105, 52);
-      pdf.text('Shipment SAP:', 105, 59);
-      pdf.text('Status Otorisasi:', 105, 66);
+      // Col 1 & 2
+      pdf.text('No. Claim ID:', 16, 48);
+      pdf.text('No. Surat Jalan Asal:', 16, 54);
+      pdf.text('No. Shipment SAP:', 16, 60);
+
+      // Col 3 & 4
+      pdf.text('Customer Tujuan:', 150, 48);
+      pdf.text('Delivery (No):', 150, 54);
+      pdf.text('Status Pergantian:', 150, 60);
 
       pdf.setTextColor(15, 23, 42);
       pdf.setFont('helvetica', 'normal');
-      pdf.text(claim.id, 46, 52);
-      pdf.text(claim.nomorSuratJalan, 46, 59);
-      pdf.text(claim.delivery || '-', 46, 66);
-      pdf.text(claim.customerName, 138, 52);
-      pdf.text(claim.shipmentNumber || '-', 138, 59);
+      pdf.text(claim.id, 56, 48);
+      pdf.text(claim.nomorSuratJalan, 56, 54);
+      pdf.text(claim.shipmentNumber || '-', 56, 60);
+
+      pdf.text(claim.customerName, 185, 48);
+      pdf.text(claim.delivery || '-', 185, 54);
       pdf.setTextColor(4, 120, 87);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('CLAIM APPROVED / COMPLETE', 138, 66);
+      pdf.text('PART SUDAH DI GANTI ✓', 185, 60);
 
       // Parts Table Header
       pdf.setFillColor(0, 91, 172);
-      pdf.rect(14, 78, 182, 8, 'F');
+      pdf.rect(12, 70, 273, 8, 'F');
       pdf.setTextColor(255, 255, 255);
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(8);
-      pdf.text('NO', 17, 83);
-      pdf.text('PART NUMBER', 26, 83);
-      pdf.text('NAMA / DESKRIPSI PART', 66, 83);
-      pdf.text('QTY PERGANTIAN', 128, 83);
-      pdf.text('UOM', 158, 83);
-      pdf.text('JENIS KLAIM', 172, 83);
+      pdf.text('NO', 15, 75);
+      pdf.text('PART NUMBER', 26, 75);
+      pdf.text('DESKRIPSI SPAREPART', 75, 75);
+      pdf.text('NO. SURAT JALAN', 160, 75);
+      pdf.text('DELIVERY', 200, 75);
+      pdf.text('QTY GANTI', 228, 75);
+      pdf.text('UOM', 252, 75);
+      pdf.text('STATUS', 265, 75);
 
       // Parts Row
       pdf.setFillColor(248, 250, 252);
-      pdf.rect(14, 86, 182, 12, 'FD');
+      pdf.rect(12, 78, 273, 11, 'FD');
       pdf.setTextColor(15, 23, 42);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('1', 18, 93);
-      pdf.text(claim.material, 26, 93);
+      pdf.text('1', 16, 85);
+      pdf.text(claim.material, 26, 85);
       pdf.setFont('helvetica', 'normal');
-      pdf.text(claim.materialDescription.length > 32 ? claim.materialDescription.substring(0, 32) + '...' : claim.materialDescription, 66, 93);
-      
+      pdf.text(claim.materialDescription.length > 45 ? claim.materialDescription.substring(0, 45) + '...' : claim.materialDescription, 75, 85);
+      pdf.text(claim.nomorSuratJalan, 160, 85);
+      pdf.text(claim.delivery || '-', 200, 85);
+
       pdf.setTextColor(4, 120, 87);
       pdf.setFont('helvetica', 'bold');
-      pdf.text(`${claim.qtyShortage}`, 138, 93);
-      
+      pdf.text(`${claim.qtyShortage}`, 235, 85);
+
       pdf.setTextColor(15, 23, 42);
-      pdf.text(claim.uom, 160, 93);
-      pdf.setFont('helvetica', 'normal');
-      pdf.text(claim.jenisClaim || 'Claim Kurang', 172, 93);
+      pdf.text(claim.uom, 254, 85);
+      pdf.text('DIGANTI ✓', 265, 85);
 
       // Notes Box
       pdf.setDrawColor(203, 213, 225);
       pdf.setFillColor(248, 250, 252);
-      pdf.roundedRect(14, 103, 182, 20, 1.5, 1.5, 'FD');
+      pdf.roundedRect(12, 93, 273, 18, 1.5, 1.5, 'FD');
 
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(8);
       pdf.setTextColor(71, 85, 105);
-      pdf.text('Catatan & Keterangan Pergantian:', 18, 108);
+      pdf.text('Catatan & Keterangan Pergantian:', 16, 98);
 
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(15, 23, 42);
       pdf.setFontSize(8);
-      pdf.text(notes || 'Barang klaim diserahkan sebagai pengganti fisik sesuai persetujuan klaim shortage.', 18, 114);
+      pdf.text(notes || 'Barang klaim diserahkan sebagai pengganti fisik sesuai persetujuan klaim shortage.', 16, 104);
       if (claim.analisaNotes) {
         pdf.setTextColor(79, 70, 229);
-        pdf.text(`Hasil Analisa Owner: ${claim.analisaNotes}`, 18, 119);
+        pdf.text(`Hasil Analisa Owner: ${claim.analisaNotes}`, 16, 108);
       }
 
-      // Signature Blocks
-      const signY = 130;
-      const colWidth = 56;
+      // Signature Blocks (3 wide columns in Landscape)
+      const signY = 116;
+      const colWidth = 86;
+      const gap = 7.5;
 
       // Col 1: Part Head / Gudang
-      pdf.rect(14, signY, colWidth, 34, 'D');
+      pdf.rect(12, signY, colWidth, 32, 'D');
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(7.5);
       pdf.setTextColor(71, 85, 105);
-      pdf.text('DISERAHKAN OLEH (PART HEAD)', 14 + colWidth / 2, signY + 6, { align: 'center' });
+      pdf.text('DISERAHKAN OLEH (PART HEAD / GUDANG)', 12 + colWidth / 2, signY + 6, { align: 'center' });
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(15, 23, 42);
-      pdf.text(claim.replacedBy || currentUser?.displayName || 'Petugas Gudang / Part Head', 14 + colWidth / 2, signY + 30, { align: 'center' });
+      pdf.text(claim.replacedBy || currentUser?.displayName || 'Petugas Gudang / Part Head', 12 + colWidth / 2, signY + 28, { align: 'center' });
 
       // Col 2: Ekspedisi / Kurir
-      pdf.rect(14 + colWidth + 7, signY, colWidth, 34, 'D');
+      pdf.rect(12 + colWidth + gap, signY, colWidth, 32, 'D');
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(71, 85, 105);
-      pdf.text('PENGIRIM / EKSPEDISI', 14 + colWidth + 7 + colWidth / 2, signY + 6, { align: 'center' });
+      pdf.text('PENGIRIM / EKSPEDISI (DRIVER)', 12 + colWidth + gap + colWidth / 2, signY + 6, { align: 'center' });
       pdf.setFont('helvetica', 'normal');
-      pdf.text('(....................................)', 14 + colWidth + 7 + colWidth / 2, signY + 30, { align: 'center' });
+      pdf.text('(..................................................)', 12 + colWidth + gap + colWidth / 2, signY + 28, { align: 'center' });
 
       // Col 3: Penerima Customer
-      pdf.rect(14 + (colWidth + 7) * 2, signY, colWidth, 34, 'D');
+      pdf.rect(12 + (colWidth + gap) * 2, signY, colWidth, 32, 'D');
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(71, 85, 105);
-      pdf.text('DITERIMA OLEH (CUSTOMER)', 14 + (colWidth + 7) * 2 + colWidth / 2, signY + 6, { align: 'center' });
+      pdf.text('DITERIMA OLEH (CUSTOMER / CABANG)', 12 + (colWidth + gap) * 2 + colWidth / 2, signY + 6, { align: 'center' });
       pdf.setFont('helvetica', 'normal');
-      pdf.text(claim.customerName.length > 22 ? claim.customerName.substring(0, 22) + '...' : claim.customerName, 14 + (colWidth + 7) * 2 + colWidth / 2, signY + 30, { align: 'center' });
+      pdf.text(claim.customerName.length > 35 ? claim.customerName.substring(0, 35) + '...' : claim.customerName, 12 + (colWidth + gap) * 2 + colWidth / 2, signY + 28, { align: 'center' });
 
       pdf.save(`Surat_Pengantar_Ganti_Part_${claim.material}_${claim.id}.pdf`);
     } finally {
@@ -432,7 +578,7 @@ export const SuratPengantarGantiPartModal: React.FC<SuratPengantarGantiPartModal
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-3 sm:p-5 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full my-6 overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full my-6 overflow-hidden border border-slate-200 flex flex-col max-h-[92vh]">
         
         {/* Modal Top Bar */}
         <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between shrink-0">
@@ -443,6 +589,9 @@ export const SuratPengantarGantiPartModal: React.FC<SuratPengantarGantiPartModal
             <div>
               <h3 className="font-bold text-base flex items-center gap-2">
                 Surat Pengantar Pergantian Part
+                <span className="text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-400/30 px-2 py-0.5 rounded">
+                  Format A4 Landscape
+                </span>
                 {isCompleted && (
                   <span className="text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" /> Sudah Diganti
@@ -472,20 +621,20 @@ export const SuratPengantarGantiPartModal: React.FC<SuratPengantarGantiPartModal
 
         {/* Scrollable Document Preview Container */}
         <div className="p-6 overflow-y-auto flex-1 bg-slate-100/60">
-          <div className="max-w-3xl mx-auto bg-white p-6 sm:p-8 rounded-xl shadow-xs border border-slate-200">
+          <div className="max-w-5xl mx-auto bg-white p-6 sm:p-8 rounded-xl shadow-xs border border-slate-200">
             
             {/* The printable element content */}
             <div id="printable-surat-pengantar">
               
               {/* Letterhead */}
-              <table style={{ width: '100%', borderBottom: '2px solid #005BAC', paddingBottom: '10px', marginBottom: '14px' }}>
+              <table style={{ width: '100%', borderBottom: '2.5px solid #005BAC', paddingBottom: '8px', marginBottom: '12px' }}>
                 <tbody>
                   <tr>
-                    <td style={{ verticalAlign: 'middle', width: '50%' }}>
+                    <td style={{ verticalAlign: 'middle', width: '45%' }}>
                       <AstraIsuzuLogo className="h-10 sm:h-12 w-auto object-contain" />
                     </td>
-                    <td style={{ verticalAlign: 'middle', textAlign: 'right', width: '50%' }}>
-                      <div style={{ fontSize: '15px', fontWeight: 900, color: '#005BAC', textTransform: 'uppercase', letterSpacing: '-0.2px' }}>
+                    <td style={{ verticalAlign: 'middle', textAlign: 'right', width: '55%' }}>
+                      <div style={{ fontSize: '16px', fontWeight: 900, color: '#005BAC', textTransform: 'uppercase', letterSpacing: '-0.2px' }}>
                         THIRD PARTY SYNCHRONIZE SYSTEM
                       </div>
                       <div style={{ fontSize: '10px', fontWeight: 700, color: '#ED1B24', marginTop: '2px' }}>
@@ -502,42 +651,42 @@ export const SuratPengantarGantiPartModal: React.FC<SuratPengantarGantiPartModal
                 backgroundColor: '#f8fafc',
                 border: '1px solid #cbd5e1',
                 borderRadius: '6px',
-                padding: '10px',
-                marginBottom: '16px'
+                padding: '8px',
+                marginBottom: '12px'
               }}>
-                <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0f172a', letterSpacing: '0.5px' }}>
+                <h2 style={{ margin: 0, fontSize: '15px', fontWeight: 900, color: '#0f172a', letterSpacing: '0.5px' }}>
                   SURAT PENGANTAR PERGANTIAN PART
                 </h2>
-                <div style={{ marginTop: '4px', fontSize: '11px', fontWeight: 700, color: '#005BAC', fontFamily: 'monospace' }}>
-                  Nomor: {docNumber} &nbsp;•&nbsp; Tanggal: {currentDateStr}
+                <div style={{ marginTop: '3px', fontSize: '11px', fontWeight: 700, color: '#005BAC', fontFamily: 'monospace' }}>
+                  Nomor: {docNumber} &nbsp;•&nbsp; Tanggal: {currentDateStr} &nbsp;•&nbsp; Format Cetak: A4 Landscape
                 </div>
               </div>
 
-              {/* Information Meta Grid */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px', fontSize: '11px' }}>
+              {/* Information Meta Grid (4 Columns Landscape Layout) */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '14px', fontSize: '11px' }}>
                 <tbody>
                   <tr>
-                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', width: '22%', color: '#64748b', fontWeight: 600 }}>
+                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', width: '15%', color: '#64748b', fontWeight: 600, backgroundColor: '#f8fafc' }}>
                       No. Claim ID
                     </td>
-                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', width: '28%', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>
+                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', width: '35%', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>
                       {claim.id}
                     </td>
-                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', width: '22%', color: '#64748b', fontWeight: 600 }}>
+                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', width: '15%', color: '#64748b', fontWeight: 600, backgroundColor: '#f8fafc' }}>
                       Customer / Penerima
                     </td>
-                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', width: '28%', fontWeight: 700, color: '#0f172a' }}>
+                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', width: '35%', fontWeight: 700, color: '#0f172a' }}>
                       {claim.customerName}
                     </td>
                   </tr>
                   <tr>
-                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600 }}>
+                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600, backgroundColor: '#f8fafc' }}>
                       No. Surat Jalan Asal
                     </td>
                     <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>
                       {claim.nomorSuratJalan}
                     </td>
-                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600 }}>
+                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600, backgroundColor: '#f8fafc' }}>
                       Delivery (No)
                     </td>
                     <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>
@@ -545,61 +694,83 @@ export const SuratPengantarGantiPartModal: React.FC<SuratPengantarGantiPartModal
                     </td>
                   </tr>
                   <tr>
-                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600 }}>
+                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600, backgroundColor: '#f8fafc' }}>
                       No. Shipment SAP
                     </td>
                     <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>
                       {claim.shipmentNumber || '-'}
                     </td>
-                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600 }}>
-                      Status Rekonsiliasi
+                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600, backgroundColor: '#f8fafc' }}>
+                      Plant Logistik
+                    </td>
+                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', fontWeight: 700, color: '#0f172a' }}>
+                      {claim.plant || 'Plant I300 Sunter'}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600, backgroundColor: '#f8fafc' }}>
+                      Jenis Klaim
+                    </td>
+                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', fontWeight: 700, color: '#0f172a' }}>
+                      {claim.jenisClaim || 'Claim Kurang'} (Approved)
+                    </td>
+                    <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', color: '#64748b', fontWeight: 600, backgroundColor: '#f8fafc' }}>
+                      Status Pergantian
                     </td>
                     <td style={{ padding: '6px 10px', border: '1px solid #e2e8f0', fontWeight: 700, color: '#047857' }}>
-                      APPROVED / REPLACEMENT
+                      PART SUDAH DI GANTI ✓
                     </td>
                   </tr>
                 </tbody>
               </table>
 
-              {/* Items Table */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px', fontSize: '11px' }}>
+              {/* Items Table in Landscape */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '14px', fontSize: '11px' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#005BAC', color: '#ffffff' }}>
-                    <th style={{ padding: '8px', border: '1px solid #005BAC', width: '5%', textAlign: 'center' }}>No</th>
-                    <th style={{ padding: '8px', border: '1px solid #005BAC', width: '25%', textAlign: 'left' }}>Part Number</th>
-                    <th style={{ padding: '8px', border: '1px solid #005BAC', width: '35%', textAlign: 'left' }}>Deskripsi Part</th>
-                    <th style={{ padding: '8px', border: '1px solid #005BAC', width: '15%', textAlign: 'center' }}>Qty Ganti</th>
-                    <th style={{ padding: '8px', border: '1px solid #005BAC', width: '10%', textAlign: 'center' }}>Satuan</th>
-                    <th style={{ padding: '8px', border: '1px solid #005BAC', width: '10%', textAlign: 'center' }}>Status</th>
+                    <th style={{ padding: '7px 8px', border: '1px solid #005BAC', width: '4%', textAlign: 'center' }}>No</th>
+                    <th style={{ padding: '7px 8px', border: '1px solid #005BAC', width: '18%', textAlign: 'left' }}>Part Number</th>
+                    <th style={{ padding: '7px 8px', border: '1px solid #005BAC', width: '32%', textAlign: 'left' }}>Deskripsi Part</th>
+                    <th style={{ padding: '7px 8px', border: '1px solid #005BAC', width: '14%', textAlign: 'left' }}>No. Surat Jalan</th>
+                    <th style={{ padding: '7px 8px', border: '1px solid #005BAC', width: '10%', textAlign: 'left' }}>Delivery (No)</th>
+                    <th style={{ padding: '7px 8px', border: '1px solid #005BAC', width: '10%', textAlign: 'center' }}>Qty Ganti</th>
+                    <th style={{ padding: '7px 8px', border: '1px solid #005BAC', width: '6%', textAlign: 'center' }}>Satuan</th>
+                    <th style={{ padding: '7px 8px', border: '1px solid #005BAC', width: '6%', textAlign: 'center' }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr style={{ backgroundColor: '#ffffff' }}>
-                    <td style={{ padding: '9px 8px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 700 }}>1</td>
-                    <td style={{ padding: '9px 8px', border: '1px solid #cbd5e1', fontWeight: 800, color: '#005BAC', fontFamily: 'monospace' }}>
+                    <td style={{ padding: '8px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 700 }}>1</td>
+                    <td style={{ padding: '8px', border: '1px solid #cbd5e1', fontWeight: 900, color: '#005BAC', fontFamily: 'monospace' }}>
                       {claim.material}
                     </td>
-                    <td style={{ padding: '9px 8px', border: '1px solid #cbd5e1', fontWeight: 600, color: '#1e293b' }}>
+                    <td style={{ padding: '8px', border: '1px solid #cbd5e1', fontWeight: 600, color: '#1e293b' }}>
                       {claim.materialDescription}
                     </td>
-                    <td style={{ padding: '9px 8px', border: '1px solid #cbd5e1', textAlign: 'center' }}>
+                    <td style={{ padding: '8px', border: '1px solid #cbd5e1', fontFamily: 'monospace', fontWeight: 700 }}>
+                      {claim.nomorSuratJalan}
+                    </td>
+                    <td style={{ padding: '8px', border: '1px solid #cbd5e1', fontFamily: 'monospace' }}>
+                      {claim.delivery || '-'}
+                    </td>
+                    <td style={{ padding: '8px', border: '1px solid #cbd5e1', textAlign: 'center' }}>
                       <span style={{
                         display: 'inline-block',
                         backgroundColor: '#ecfdf5',
                         color: '#047857',
-                        fontWeight: 800,
-                        padding: '3px 10px',
+                        fontWeight: 900,
+                        padding: '2px 8px',
                         borderRadius: '4px',
                         border: '1px solid #a7f3d0'
                       }}>
                         {claim.qtyShortage}
                       </span>
                     </td>
-                    <td style={{ padding: '9px 8px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600 }}>
+                    <td style={{ padding: '8px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 600 }}>
                       {claim.uom}
                     </td>
-                    <td style={{ padding: '9px 8px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 700, color: '#047857' }}>
-                      {isCompleted ? 'DIGANTI ✓' : 'PROSES GANTI'}
+                    <td style={{ padding: '8px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 700, color: '#047857' }}>
+                      DIGANTI ✓
                     </td>
                   </tr>
                 </tbody>
@@ -610,10 +781,10 @@ export const SuratPengantarGantiPartModal: React.FC<SuratPengantarGantiPartModal
                 backgroundColor: '#f8fafc',
                 border: '1px solid #cbd5e1',
                 borderRadius: '6px',
-                padding: '10px 14px',
-                marginBottom: '20px',
+                padding: '8px 12px',
+                marginBottom: '14px',
                 fontSize: '11px',
-                lineHeight: '1.5'
+                lineHeight: '1.4'
               }}>
                 <div style={{ fontWeight: 700, color: '#334155', marginBottom: '2px' }}>
                   Catatan / Keterangan Serah Terima Part:
@@ -622,50 +793,48 @@ export const SuratPengantarGantiPartModal: React.FC<SuratPengantarGantiPartModal
                   {notes || 'Barang klaim diserahkan sebagai pengganti fisik sesuai persetujuan klaim shortage.'}
                 </div>
                 {claim.analisaNotes && (
-                  <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #cbd5e1', color: '#4338ca', fontSize: '10.5px' }}>
+                  <div style={{ marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #cbd5e1', color: '#4338ca', fontSize: '10.5px' }}>
                     <strong>Hasil Analisa Owner:</strong> {claim.analisaNotes}
                   </div>
                 )}
-                {isCompleted && claim.replacedAt && (
-                  <div style={{ marginTop: '6px', color: '#047857', fontWeight: 700, fontSize: '10.5px' }}>
-                    ✓ Selesai diganti pada: {formatDateTimeIndo(claim.replacedAt)} oleh {claim.replacedBy || 'Petugas Gudang'}
-                  </div>
-                )}
+                <div style={{ marginTop: '4px', color: '#047857', fontWeight: 700, fontSize: '10.5px' }}>
+                  ✓ Status: Part Sudah di Ganti (Tersinkronisasi ke Complete Proses & Return Sales)
+                </div>
               </div>
 
-              {/* Signatures */}
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
+              {/* Signatures in Landscape (3 Columns) */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '12px' }}>
                 <tbody>
                   <tr>
-                    <td style={{ width: '33.33%', padding: '6px', verticalAlign: 'top', textAlign: 'center' }}>
-                      <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '10px 8px', minHeight: '100px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                        <div style={{ fontWeight: 700, fontSize: '10px', color: '#475569', textTransform: 'uppercase', marginBottom: '45px' }}>
+                    <td style={{ width: '33.33%', padding: '4px', verticalAlign: 'top', textAlign: 'center' }}>
+                      <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 6px', minHeight: '85px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                        <div style={{ fontWeight: 700, fontSize: '10px', color: '#475569', textTransform: 'uppercase', marginBottom: '40px' }}>
                           Diserahkan Oleh<br /><span style={{ fontSize: '9px', fontWeight: 600 }}>(Part Head / Gudang)</span>
                         </div>
-                        <div style={{ fontWeight: 700, fontSize: '10.5px', color: '#0f172a', borderTop: '1px solid #94a3b8', paddingTop: '4px' }}>
-                          {claim.replacedBy || currentUser?.displayName || 'Petugas Gudang'}
+                        <div style={{ fontWeight: 700, fontSize: '10.5px', color: '#0f172a', borderTop: '1px solid #94a3b8', paddingTop: '3px' }}>
+                          {claim.replacedBy || currentUser?.displayName || 'Petugas Gudang / Part Head'}
                         </div>
                       </div>
                     </td>
 
-                    <td style={{ width: '33.33%', padding: '6px', verticalAlign: 'top', textAlign: 'center' }}>
-                      <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '10px 8px', minHeight: '100px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                        <div style={{ fontWeight: 700, fontSize: '10px', color: '#475569', textTransform: 'uppercase', marginBottom: '45px' }}>
+                    <td style={{ width: '33.33%', padding: '4px', verticalAlign: 'top', textAlign: 'center' }}>
+                      <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 6px', minHeight: '85px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                        <div style={{ fontWeight: 700, fontSize: '10px', color: '#475569', textTransform: 'uppercase', marginBottom: '40px' }}>
                           Pengirim / Ekspedisi<br /><span style={{ fontSize: '9px', fontWeight: 600 }}>(Driver / Kurir)</span>
                         </div>
-                        <div style={{ fontWeight: 700, fontSize: '10.5px', color: '#0f172a', borderTop: '1px solid #94a3b8', paddingTop: '4px' }}>
+                        <div style={{ fontWeight: 700, fontSize: '10.5px', color: '#0f172a', borderTop: '1px solid #94a3b8', paddingTop: '3px' }}>
                           (&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;)
                         </div>
                       </div>
                     </td>
 
-                    <td style={{ width: '33.33%', padding: '6px', verticalAlign: 'top', textAlign: 'center' }}>
-                      <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '10px 8px', minHeight: '100px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                        <div style={{ fontWeight: 700, fontSize: '10px', color: '#475569', textTransform: 'uppercase', marginBottom: '45px' }}>
+                    <td style={{ width: '33.33%', padding: '4px', verticalAlign: 'top', textAlign: 'center' }}>
+                      <div style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '8px 6px', minHeight: '85px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                        <div style={{ fontWeight: 700, fontSize: '10px', color: '#475569', textTransform: 'uppercase', marginBottom: '40px' }}>
                           Diterima Oleh<br /><span style={{ fontSize: '9px', fontWeight: 600 }}>(Customer / Cabang)</span>
                         </div>
-                        <div style={{ fontWeight: 700, fontSize: '10.5px', color: '#0f172a', borderTop: '1px solid #94a3b8', paddingTop: '4px' }}>
-                          {claim.customerName.length > 25 ? claim.customerName.substring(0, 25) + '...' : claim.customerName}
+                        <div style={{ fontWeight: 700, fontSize: '10.5px', color: '#0f172a', borderTop: '1px solid #94a3b8', paddingTop: '3px' }}>
+                          {claim.customerName.length > 30 ? claim.customerName.substring(0, 30) + '...' : claim.customerName}
                         </div>
                       </div>
                     </td>

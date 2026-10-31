@@ -47,12 +47,35 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
   const [completeDateFilter, setCompleteDateFilter] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<string>('all');
   const [selectedSuratJalan, setSelectedSuratJalan] = useState<string>('all');
+  // Requirement 4: Filter bulan sesuai complete date (format YYYY-MM)
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
   // Requirement 3: Button renamed to "Item Problem (Claimed)"
   const [problemOnlyFilter, setProblemOnlyFilter] = useState(false);
 
   const isOwnerOrMaster = currentUser?.role === 'owner' || currentUser?.role === 'master';
   const customerList = Array.from(new Set(completedItems.map(i => i.name).filter(Boolean))).sort();
   const suratJalanList = Array.from(new Set(completedItems.map(i => i.nomorSuratJalan).filter(Boolean))).sort();
+
+  // Extract unique months based on completedDate
+  const completeMonthList = Array.from(new Set(
+    completedItems.map(i => {
+      const d = i.completedDate;
+      if (d && d.length >= 7) {
+        return d.slice(0, 7);
+      }
+      return '';
+    }).filter(Boolean)
+  )).sort().reverse();
+
+  const formatMonthLabel = (ym: string) => {
+    try {
+      const [year, month] = ym.split('-');
+      const date = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
+      return date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+    } catch {
+      return ym;
+    }
+  };
 
   // Edit inline state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -82,6 +105,12 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
     }
     if (selectedSuratJalan !== 'all' && item.nomorSuratJalan !== selectedSuratJalan) {
       return false;
+    }
+    if (selectedMonth !== 'all') {
+      const itemYm = item.completedDate?.slice(0, 7);
+      if (itemYm !== selectedMonth) {
+        return false;
+      }
     }
     if (completeDateFilter && item.completedDate !== completeDateFilter) {
       return false;
@@ -351,6 +380,19 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
               )}
             </div>
 
+            {/* Dropdown Filter: Bulan Selesai (Complete Month) */}
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="px-3 py-2 text-xs font-semibold bg-white border border-slate-300 rounded-xl outline-none text-slate-800"
+              title="Filter Berdasarkan Bulan Selesai"
+            >
+              <option value="all">📅 Semua Bulan Selesai ({completeMonthList.length})</option>
+              {completeMonthList.map(ym => (
+                <option key={ym} value={ym}>📅 {formatMonthLabel(ym)}</option>
+              ))}
+            </select>
+
             {/* Dropdown Filter: Customer (Khusus Owner/Master atau multi-customer) */}
             {(isOwnerOrMaster || customerList.length > 1) && (
               <select
@@ -418,13 +460,15 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
               const isOverage = diffNum > 0;
               const isProblem = item.hasDiscrepancy || isShortage || isOverage;
               const diffAbs = Math.abs(diffNum);
-              const isClaimed = item.claimStatus === 'claimed' || claims.some(c => c.shipmentItemId === item.id || (c.nomorSuratJalan === item.nomorSuratJalan && c.material === item.material));
+              const linkedClaim = claims.find(c => c.shipmentItemId === item.id || (c.nomorSuratJalan === item.nomorSuratJalan && c.material === item.material));
+              const isClaimed = item.claimStatus === 'claimed' || !!linkedClaim;
+              const isReplaced = linkedClaim?.replacementStatus === 'completed' || item.replacementStatus === 'completed';
 
               return (
                 <div 
                   key={item.id} 
                   className={`p-4 space-y-3 transition ${
-                    isProblem ? 'bg-red-50/80 border-l-4 border-l-red-500' : 'bg-white'
+                    isProblem ? (isReplaced ? 'bg-emerald-50/70 border-l-4 border-l-emerald-600' : 'bg-red-50/80 border-l-4 border-l-red-500') : 'bg-white'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -434,10 +478,17 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                           {item.material}
                         </span>
                         {isProblem ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-red-600 text-white">
-                            <AlertTriangle className="w-3 h-3 text-white" />
-                            PROBLEM {diffNum < 0 ? '(-)' : '(+)'}
-                          </span>
+                          isReplaced ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white shadow-xs">
+                              <CheckCircle2 className="w-3 h-3 text-white" />
+                              PART SUDAH DI GANTI
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-red-600 text-white">
+                              <AlertTriangle className="w-3 h-3 text-white" />
+                              PROBLEM {diffNum < 0 ? '(-)' : '(+)'}
+                            </span>
+                          )
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
                             <CheckCircle2 className="w-3 h-3 text-emerald-600" />
@@ -505,7 +556,12 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
 
                   {/* Mobile Claim Button */}
                   {isProblem && (
-                    isClaimed ? (
+                    isReplaced ? (
+                      <div className="w-full py-2 px-3 bg-emerald-600 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-xs">
+                        <CheckCircle2 className="w-4 h-4 text-white" />
+                        Part Sudah di Ganti {linkedClaim?.replacementDocNumber ? `(${linkedClaim.replacementDocNumber})` : '✓'}
+                      </div>
+                    ) : isClaimed ? (
                       <div className="w-full py-2 px-3 bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-2xs">
                         <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                         Claim Diajukan ✓
@@ -564,24 +620,33 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                   const isProblem = item.hasDiscrepancy || isShortage || isOverage;
                   const diffAbs = Math.abs(diffNum);
                   const isEditing = editingId === item.id;
-                  const isClaimed = item.claimStatus === 'claimed' || claims.some(c => c.shipmentItemId === item.id || (c.nomorSuratJalan === item.nomorSuratJalan && c.material === item.material));
+                  const linkedClaim = claims.find(c => c.shipmentItemId === item.id || (c.nomorSuratJalan === item.nomorSuratJalan && c.material === item.material));
+                  const isClaimed = item.claimStatus === 'claimed' || !!linkedClaim;
+                  const isReplaced = linkedClaim?.replacementStatus === 'completed' || item.replacementStatus === 'completed';
 
                   return (
                     <tr
                       key={item.id}
                       className={`transition ${
                         isProblem
-                          ? 'bg-red-50/80 hover:bg-red-100/60 font-medium border-l-4 border-l-red-500'
+                          ? (isReplaced ? 'bg-emerald-50/70 hover:bg-emerald-100/60 font-medium border-l-4 border-l-emerald-600' : 'bg-red-50/80 hover:bg-red-100/60 font-medium border-l-4 border-l-red-500')
                           : 'hover:bg-slate-50 border-l-4 border-l-transparent'
                       }`}
                     >
-                      {/* Red Notification Badge */}
+                      {/* Status Notification Badge */}
                       <td className="py-2.5 px-3 whitespace-nowrap">
                         {isProblem ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-red-600 text-white shadow-xs">
-                            <AlertTriangle className="w-3 h-3 text-white" />
-                            ITEM PROBLEM {diffNum < 0 ? '(-)' : '(+)'}
-                          </span>
+                          isReplaced ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-600 text-white shadow-xs">
+                              <CheckCircle2 className="w-3 h-3 text-white" />
+                              PART SUDAH DI GANTI
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-red-600 text-white shadow-xs">
+                              <AlertTriangle className="w-3 h-3 text-white" />
+                              ITEM PROBLEM {diffNum < 0 ? '(-)' : '(+)'}
+                            </span>
+                          )
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                             <CheckCircle2 className="w-3 h-3 text-emerald-600" />
@@ -628,7 +693,7 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                             className="w-16 px-1.5 py-0.5 text-center font-mono border border-blue-400 rounded outline-none"
                           />
                         ) : (
-                          <span className={isProblem ? 'text-red-700 text-sm font-black' : 'text-slate-800'}>
+                          <span className={isProblem ? (isReplaced ? 'text-emerald-800 text-sm font-black' : 'text-red-700 text-sm font-black') : 'text-slate-800'}>
                             {actual}
                           </span>
                         )}
@@ -636,7 +701,7 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
 
                       <td className="py-2.5 px-3 text-center font-mono font-bold whitespace-nowrap">
                         {isProblem ? (
-                          <span className="text-red-700 bg-red-200/80 px-2 py-0.5 rounded border border-red-400">
+                          <span className={isReplaced ? 'text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300' : 'text-red-700 bg-red-200/80 px-2 py-0.5 rounded border border-red-400'}>
                             {diffNum < 0 ? `-${diffAbs}` : `+${diffAbs}`}
                           </span>
                         ) : (
@@ -652,10 +717,22 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                         {item.name}
                       </td>
 
-                      {/* Requirement 2: Field Claim Proses -> Claim Diajukan if already submitted */}
+                      {/* Requirement: Field Claim Proses -> Part Sudah di Ganti if replacement printed/completed */}
                       <td className="py-2.5 px-3 text-center whitespace-nowrap">
                         {isProblem ? (
-                          isClaimed ? (
+                          isReplaced ? (
+                            <div className="inline-flex flex-col items-center">
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-xs mx-auto">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                                Part Sudah di Ganti
+                              </span>
+                              {linkedClaim?.replacementDocNumber && (
+                                <span className="text-[10px] font-mono text-emerald-800 font-bold mt-0.5">
+                                  {linkedClaim.replacementDocNumber}
+                                </span>
+                              )}
+                            </div>
+                          ) : isClaimed ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-xs rounded-xl shadow-2xs mx-auto">
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                               Claim Diajukan

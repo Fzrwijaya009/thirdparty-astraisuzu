@@ -40,6 +40,8 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
   const [selectedCustomer, setSelectedCustomer] = useState<string>('all');
   const [selectedSuratJalan, setSelectedSuratJalan] = useState<string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'shortage' | 'match'>('all');
+  // Requirement 3: Filter bulan sesuai upload date (format YYYY-MM)
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
 
   // Notice after submission
   const [submitNotice, setSubmitNotice] = useState<{ completedCount: number; shortageCount: number } | null>(null);
@@ -53,13 +55,40 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
   const customerList = Array.from(new Set(pendingItems.map(i => i.name).filter(Boolean))).sort();
   const suratJalanList = Array.from(new Set(pendingItems.map(i => i.nomorSuratJalan).filter(Boolean))).sort();
 
-  // Apply filters: Customer, Surat Jalan, Status Selisih, & Search Material
+  // Extract unique months based on uploadDate / documentDate
+  const monthList = Array.from(new Set(
+    pendingItems.map(i => {
+      const d = i.uploadDate || i.documentDate;
+      if (d && d.length >= 7) {
+        return d.slice(0, 7);
+      }
+      return '';
+    }).filter(Boolean)
+  )).sort().reverse();
+
+  const formatMonthLabel = (ym: string) => {
+    try {
+      const [year, month] = ym.split('-');
+      const date = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
+      return date.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+    } catch {
+      return ym;
+    }
+  };
+
+  // Apply filters: Customer, Surat Jalan, Bulan Upload, Status Selisih, & Search Material
   const displayItems = pendingItems.filter(item => {
     if (selectedCustomer !== 'all' && item.name !== selectedCustomer) {
       return false;
     }
     if (selectedSuratJalan !== 'all' && item.nomorSuratJalan !== selectedSuratJalan) {
       return false;
+    }
+    if (selectedMonth !== 'all') {
+      const itemYm = (item.uploadDate || item.documentDate)?.slice(0, 7);
+      if (itemYm !== selectedMonth) {
+        return false;
+      }
     }
     if (selectedStatusFilter === 'shortage') {
       const act = item.qtyAktual !== undefined ? item.qtyAktual : item.quantity;
@@ -254,6 +283,19 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
             <option value="all">📄 Semua Surat Jalan ({suratJalanList.length})</option>
             {suratJalanList.map(sj => (
               <option key={sj} value={sj}>SJ: {sj}</option>
+            ))}
+          </select>
+
+          {/* Requirement 3: Filter Bulan Upload */}
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="px-3 py-2 text-xs font-semibold bg-slate-50 border border-slate-300 rounded-xl outline-none text-slate-800"
+            title="Filter Berdasarkan Bulan Upload Surat Jalan"
+          >
+            <option value="all">📅 Semua Bulan Upload ({monthList.length})</option>
+            {monthList.map(ym => (
+              <option key={ym} value={ym}>📅 {formatMonthLabel(ym)}</option>
             ))}
           </select>
 

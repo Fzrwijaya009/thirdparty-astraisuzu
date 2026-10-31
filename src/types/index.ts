@@ -60,9 +60,11 @@ export interface SuratJalanItem {
   invoicedBy?: string;
   invoiceNotes?: string;
 
-  // Claim tracking
+  // Claim & Replacement tracking
   claimStatus?: 'unclaimed' | 'claimed';
   claimId?: string;
+  replacementStatus?: 'pending' | 'completed';
+  replacementDocNumber?: string;
 }
 
 export type ClaimStatus = 'opened' | 'inprogress' | 'completed' | 'rejected';

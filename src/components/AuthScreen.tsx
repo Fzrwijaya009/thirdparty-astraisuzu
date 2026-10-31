@@ -96,31 +96,32 @@ export const AuthScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-[#040814] via-[#081329] to-[#16060c] flex flex-col justify-between relative overflow-hidden selection:bg-blue-200 selection:text-blue-900">
-      {/* Background Lighting Effects: Astra Blue (#005BAC) & Isuzu Red (#ED1B24) */}
-      <div className="absolute -top-32 -left-32 w-[550px] h-[550px] bg-[#005BAC]/35 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute top-1/4 left-1/3 w-80 h-80 bg-sky-500/15 rounded-full blur-[100px] pointer-events-none" />
-      <div className="absolute -bottom-32 -right-32 w-[550px] h-[550px] bg-[#ED1B24]/28 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-1/3 right-1/4 w-72 h-72 bg-rose-500/15 rounded-full blur-[90px] pointer-events-none" />
+    <div className="min-h-screen bg-linear-to-br from-[#030712] via-[#09152b] to-[#1a050d] flex flex-col justify-between relative overflow-hidden selection:bg-blue-200 selection:text-blue-900">
+      {/* Dynamic Glassmorphism Atmospheric Lighting: Astra Blue (#005BAC) & Isuzu Red (#ED1B24) */}
+      <div className="absolute -top-36 -left-36 w-[580px] h-[580px] bg-gradient-to-br from-[#005BAC]/50 via-[#0284c7]/40 to-transparent rounded-full blur-[130px] pointer-events-none animate-pulse duration-1000" />
+      <div className="absolute top-1/4 -right-20 w-[500px] h-[500px] bg-gradient-to-bl from-[#ED1B24]/45 via-[#f43f5e]/35 to-transparent rounded-full blur-[130px] pointer-events-none" />
+      <div className="absolute -bottom-36 left-1/4 w-[600px] h-[600px] bg-gradient-to-tr from-[#005BAC]/35 via-[#ED1B24]/30 to-transparent rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[720px] h-[720px] bg-sky-500/10 rounded-full blur-[150px] pointer-events-none" />
+
+      {/* Floating Glass Geometry Accents */}
+      <div className="absolute top-20 right-16 w-32 h-32 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-xl rotate-12 pointer-events-none shadow-2xl hidden md:block" />
+      <div className="absolute bottom-24 left-16 w-40 h-40 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-xl -rotate-12 pointer-events-none shadow-2xl hidden md:block" />
 
       {/* High-tech Subtle Grid Overlay */}
       <div 
-        className="absolute inset-0 opacity-[0.07] pointer-events-none bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.8)_1px,transparent_0)]" 
-        style={{ backgroundSize: '28px 28px' }} 
+        className="absolute inset-0 opacity-[0.06] pointer-events-none bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.9)_1px,transparent_0)]" 
+        style={{ backgroundSize: '32px 32px' }} 
       />
 
-      {/* Radial Center Light Flare behind Card */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-gradient-to-r from-blue-600/10 via-transparent to-red-600/10 rounded-full blur-[120px] pointer-events-none" />
-
-      {/* Top Corporate Strip with glowing gradient */}
-      <div className="h-1.5 w-full bg-linear-to-r from-[#005BAC] via-[#0ea5e9] to-[#ED1B24] shadow-[0_0_20px_rgba(14,165,233,0.6)] z-20" />
+      {/* Top Corporate Glass Strip */}
+      <div className="h-1.5 w-full bg-linear-to-r from-[#005BAC] via-[#38bdf8] to-[#ED1B24] shadow-[0_0_20px_rgba(56,189,248,0.7)] z-20" />
 
       {/* Main Authentication Container */}
       <div className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8 z-10">
-        <div className="max-w-md w-full bg-white/98 backdrop-blur-md rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7),0_0_40px_-10px_rgba(0,91,172,0.35),0_0_40px_-10px_rgba(237,27,36,0.25)] overflow-hidden border border-white/40 ring-1 ring-slate-900/10 animate-in fade-in zoom-in-95 duration-200">
+        <div className="max-w-md w-full bg-white/88 backdrop-blur-2xl rounded-3xl shadow-[0_20px_70px_-15px_rgba(0,0,0,0.6),0_0_50px_rgba(0,91,172,0.3),0_0_50px_rgba(237,27,36,0.22)] overflow-hidden border border-white/60 ring-1 ring-white/40 animate-in fade-in zoom-in-95 duration-200">
           
-          {/* Logo & Header Section (Requirement 1 & 3: Logo Terlampir & TP-SYNCS branding) */}
-          <div className="p-8 text-center border-b border-slate-100 bg-linear-to-b from-slate-50/90 to-white">
+          {/* Logo & Header Section with Frosted Glass Finish */}
+          <div className="p-8 text-center border-b border-slate-200/60 bg-linear-to-b from-white/80 via-white/50 to-slate-50/60 backdrop-blur-md">
             <div className="flex justify-center mb-5">
               <AstraIsuzuLogo className="h-13 sm:h-14 w-auto object-contain drop-shadow-xs" />
             </div>
@@ -129,23 +130,23 @@ export const AuthScreen: React.FC = () => {
               <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">
                 TP-SYNCS
               </h1>
-              <p className="text-xs font-semibold text-[#005BAC] tracking-wider uppercase">
+              <p className="text-xs font-bold text-[#005BAC] tracking-wider uppercase">
                 Third Party Synchronize System
               </p>
-              <p className="text-[11px] text-slate-400 font-medium pt-1">
+              <p className="text-[11px] text-slate-500 font-medium pt-1">
                 Departemen Retail & Part Services • PT Astra International Tbk - Isuzu
               </p>
             </div>
 
-            {/* Mode Switcher Tabs */}
-            <div className="grid grid-cols-2 p-1 bg-slate-100 rounded-2xl mt-6 text-xs font-bold">
+            {/* Mode Switcher Tabs with Glass Style */}
+            <div className="grid grid-cols-2 p-1 bg-slate-200/60 backdrop-blur-md rounded-2xl mt-6 text-xs font-bold border border-white/60 shadow-inner">
               <button
                 type="button"
                 onClick={() => { setMode('login'); setErrorMsg(''); setSuccessMsg(''); }}
                 className={`py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 ${
                   mode === 'login'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
+                    ? 'bg-white text-slate-900 shadow-sm border border-white/80 font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <LogIn className="w-3.5 h-3.5" />
@@ -156,8 +157,8 @@ export const AuthScreen: React.FC = () => {
                 onClick={() => { setMode('register'); setErrorMsg(''); setSuccessMsg(''); }}
                 className={`py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 ${
                   mode === 'register'
-                    ? 'bg-[#005BAC] text-white shadow-xs'
-                    : 'text-slate-500 hover:text-slate-800'
+                    ? 'bg-linear-to-r from-[#005BAC] to-[#0284c7] text-white shadow-sm font-bold border border-blue-400/30'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <UserPlus className="w-3.5 h-3.5" />
@@ -292,11 +293,11 @@ export const AuthScreen: React.FC = () => {
                 </div>
               </div>
 
-              {/* Submit Button */}
+              {/* Submit Button with Blue-Red Gradient Glass Glow */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full mt-3 py-3 px-4 bg-[#005BAC] hover:bg-[#00488a] text-white font-bold text-xs rounded-xl transition shadow-lg shadow-blue-900/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full mt-3 py-3 px-4 bg-linear-to-r from-[#005BAC] via-[#0284c7] to-[#ED1B24] hover:shadow-[0_0_25px_rgba(0,91,172,0.5)] text-white font-bold text-xs rounded-xl transition shadow-lg shadow-blue-900/25 border border-white/20 disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loading ? (
                   'Memproses...'
