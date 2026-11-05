@@ -17,7 +17,9 @@ import {
   Package, 
   Layers, 
   HelpCircle,
-  RotateCcw
+  RotateCcw,
+  Clock,
+  Calendar
 } from 'lucide-react';
 import { exportSuratJalanToExcel } from '../utils/excel';
 
@@ -47,6 +49,23 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
   const [submitNotice, setSubmitNotice] = useState<{ completedCount: number; shortageCount: number } | null>(null);
 
   const isOwnerOrMaster = currentUser?.role === 'owner' || currentUser?.role === 'master';
+
+  const todayDateStr = new Date().toISOString().slice(0, 10);
+
+  const calculateLeadtimeDays = (dateStr?: string) => {
+    if (!dateStr) return 0;
+    try {
+      const upload = new Date(dateStr);
+      if (isNaN(upload.getTime())) return 0;
+      const today = new Date();
+      const utcUpload = Date.UTC(upload.getFullYear(), upload.getMonth(), upload.getDate());
+      const utcToday = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+      const diffMs = utcToday - utcUpload;
+      return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+    } catch {
+      return 0;
+    }
+  };
 
   // Filter items that are pending check AND accessible to current user (Admin isolation)
   const pendingItems = items.filter(item => item.status !== 'completed' && canAccessItem(item.name));
@@ -387,7 +406,24 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
                           {item.materialDescription}
                         </div>
                         <div className="text-[11px] text-slate-500 mt-0.5">
-                          SJ: <span className="font-mono font-bold text-slate-700">{item.nomorSuratJalan}</span> • Deliv: <span className="font-mono font-bold text-slate-700">{item.delivery || '-'}</span> • Cust: {item.name}
+                          SJ: <span className="font-mono font-bold text-slate-700">{item.nomorSuratJalan}</span> • Deliv: <span className="font-mono font-bold text-slate-700">{item.delivery || '-'}</span> • HU: <span className="font-mono font-bold text-slate-800">{item.handlingUnit || '-'}</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500 mt-1">
+                          <span>Upload: <strong className="font-mono text-slate-700">{item.uploadDate || item.documentDate || '-'}</strong></span>
+                          <span>•</span>
+                          <span>Day: <strong className="font-mono text-slate-700">{todayDateStr}</strong></span>
+                          <span>•</span>
+                          <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded font-bold ${
+                            calculateLeadtimeDays(item.uploadDate || item.documentDate) > 3 
+                              ? 'bg-red-100 text-red-800' 
+                              : 'bg-blue-100 text-[#005BAC]'
+                          }`}>
+                            <Clock className="w-2.5 h-2.5" />
+                            {calculateLeadtimeDays(item.uploadDate || item.documentDate)} Hari
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          Cust: <span className="font-medium text-slate-700">{item.name}</span>
                         </div>
                       </div>
                     </div>
@@ -483,6 +519,10 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
                     className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
                 </th>
+                <th className="py-3 px-3">Upload Date</th>
+                <th className="py-3 px-3">Day (Hari Ini)</th>
+                <th className="py-3 px-3 text-center">Leadtime</th>
+                <th className="py-3 px-3">Handling Unit</th>
                 <th className="py-3 px-3">Material (Part No)</th>
                 <th className="py-3 px-3">Deskripsi Sparepart</th>
                 <th className="py-3 px-3 text-center">Qty Dokumen (Upload)</th>
@@ -500,7 +540,7 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
             <tbody className="divide-y divide-slate-200 text-slate-700">
               {displayItems.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-12 text-center text-slate-400">
+                  <td colSpan={15} className="py-12 text-center text-slate-400">
                     <Package className="w-8 h-8 mx-auto text-slate-300 mb-2" />
                     {materialSearch ? (
                       <p>Tidak ditemukan Material dengan nomor part "{materialSearch}".</p>
@@ -517,6 +557,8 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
                   const isOverage = diffNum > 0;
                   const isDiscrepancy = isShortage || isOverage;
                   const diffAbs = Math.abs(diffNum);
+                  const uploadDate = item.uploadDate || item.documentDate || '-';
+                  const leadTimeDays = calculateLeadtimeDays(uploadDate);
 
                   return (
                     <tr
@@ -533,6 +575,37 @@ export const CheckSparepartView: React.FC<{ onNavigate: (menu: string) => void }
                           onChange={() => toggleItemCheck(item.id)}
                           className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                         />
+                      </td>
+
+                      {/* Upload Date */}
+                      <td className="py-2.5 px-3 font-mono font-medium text-slate-800 whitespace-nowrap">
+                        {uploadDate}
+                      </td>
+
+                      {/* Day (Tanggal Hari Ini) */}
+                      <td className="py-2.5 px-3 font-mono text-slate-600 whitespace-nowrap">
+                        <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                          {todayDateStr}
+                        </span>
+                      </td>
+
+                      {/* Leadtime (Range waktu dari Upload Date sampai Hari Ini) */}
+                      <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 font-bold px-2.5 py-0.5 rounded-full text-xs ${
+                          leadTimeDays > 3
+                            ? 'bg-red-100 text-red-800 border border-red-300'
+                            : leadTimeDays > 1
+                            ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                            : 'bg-blue-50 text-[#005BAC] border border-blue-200'
+                        }`}>
+                          <Clock className="w-3 h-3" />
+                          {leadTimeDays} Hari
+                        </span>
+                      </td>
+
+                      {/* Handling Unit */}
+                      <td className="py-2.5 px-3 font-mono font-bold text-slate-800 whitespace-nowrap">
+                        {item.handlingUnit || '-'}
                       </td>
 
                       {/* Material (Part Number) */}

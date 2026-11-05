@@ -26,6 +26,14 @@ export const UserApprovalView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const isMaster = currentUser?.role === 'master';
+  const isOwnerOrMaster = currentUser?.role === 'master' || currentUser?.role === 'owner';
+
+  const canDeleteUser = (u: any) => {
+    if (!isOwnerOrMaster) return false;
+    if (u.email.toLowerCase() === 'fajrisani12@gmail.com') return false;
+    if (currentUser?.role === 'owner' && u.role === 'master') return false;
+    return true;
+  };
 
   const filteredUsers = allUsers.filter(u => {
     if (filterStatus === 'pending' && u.status !== 'pending') return false;
@@ -93,12 +101,12 @@ export const UserApprovalView: React.FC = () => {
       </div>
 
       {!isMaster && (
-        <div className="bg-purple-50 border border-purple-200 rounded-2xl p-6 flex items-center gap-3">
-          <ShieldAlert className="w-8 h-8 text-purple-600 shrink-0" />
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 flex items-center gap-3">
+          <ShieldCheck className="w-8 h-8 text-[#005BAC] shrink-0" />
           <div>
-            <h3 className="font-bold text-purple-900 text-sm">Hak Akses Terbatas</h3>
-            <p className="text-xs text-purple-700 mt-0.5">
-              Halaman approval akun pengguna baru hanya dapat dikelola oleh otorisasi <strong>Master System</strong>.
+            <h3 className="font-bold text-blue-900 text-sm">Otoritas Manajemen Akun (Owner)</h3>
+            <p className="text-xs text-blue-700 mt-0.5">
+              Sebagai akun <strong>Owner</strong>, Anda dapat meninjau seluruh daftar pengguna dan memiliki wewenang untuk <strong>menghapus akun Admin</strong> jika diperlukan. Persetujuan (Approval) akun baru tetap dikelola secara terpusat oleh <strong>Master System</strong>.
             </p>
           </div>
         </div>
@@ -253,7 +261,7 @@ export const UserApprovalView: React.FC = () => {
                           </>
                         )}
 
-                        {isMaster && u.email.toLowerCase() !== 'fajrisani12@gmail.com' && (
+                        {canDeleteUser(u) && (
                           <button
                             onClick={async () => {
                               if (window.confirm(`Hapus akun ${u.displayName} (${u.email})? Pengguna yang dihapus harus mendaftar ulang untuk dapat mengakses sistem.`)) {
@@ -354,7 +362,7 @@ export const UserApprovalView: React.FC = () => {
                     </>
                   )}
 
-                  {isMaster && u.email.toLowerCase() !== 'fajrisani12@gmail.com' && (
+                  {canDeleteUser(u) && (
                     <button
                       onClick={async () => {
                         if (window.confirm(`Hapus akun ${u.displayName} (${u.email})? Pengguna yang dihapus harus mendaftar ulang untuk dapat mengakses sistem.`)) {

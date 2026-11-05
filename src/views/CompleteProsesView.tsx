@@ -22,10 +22,13 @@ import {
   ExternalLink,
   ImageIcon,
   Receipt,
-  FileText
+  FileText,
+  Eye,
+  Download
 } from 'lucide-react';
 import { exportSuratJalanToExcel } from '../utils/excel';
 import { SuratJalanItem, JenisClaim } from '../types';
+import { compressImageFile } from '../utils/imageCompressor';
 
 export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }> = ({ onNavigate }) => {
   const { 
@@ -90,14 +93,20 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
   const [fotoSuratJalanName, setFotoSuratJalanName] = useState('');
   const [fotoDnDusUrl, setFotoDnDusUrl] = useState('');
   const [fotoDnDusName, setFotoDnDusName] = useState('');
+  const [fotoDetailItemUrl, setFotoDetailItemUrl] = useState('');
+  const [fotoDetailItemName, setFotoDetailItemName] = useState('');
 
-  // Requirement 6: Create Invoice Modal state (Owner & Master System only)
+  // Requirement 2 & 6: Create Invoice Modal state (Owner & Master System only)
   const [invoiceModalItem, setInvoiceModalItem] = useState<SuratJalanItem | null>(null);
   const [invoiceNumberInput, setInvoiceNumberInput] = useState('');
   const [invoiceNotesInput, setInvoiceNotesInput] = useState('');
+  const [invoicePhotoUrl, setInvoicePhotoUrl] = useState('');
+  const [invoicePhotoName, setInvoicePhotoName] = useState('');
+  const [isCompressingInvoicePhoto, setIsCompressingInvoicePhoto] = useState(false);
   const [isSubmittingInvoice, setIsSubmittingInvoice] = useState(false);
-  const [fotoDetailItemUrl, setFotoDetailItemUrl] = useState('');
-  const [fotoDetailItemName, setFotoDetailItemName] = useState('');
+
+  // Requirement 2: Review Invoice state (bisa di review oleh user admin)
+  const [viewingInvoiceItem, setViewingInvoiceItem] = useState<SuratJalanItem | null>(null);
 
   const filteredItems = completedItems.filter(item => {
     if (selectedCustomer !== 'all' && item.name !== selectedCustomer) {
@@ -251,6 +260,31 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
     setInvoiceModalItem(item);
     setInvoiceNumberInput(item.invoiceNumber || `INV/ISZ/${new Date().getFullYear()}/${item.delivery || item.nomorSuratJalan || '001'}`);
     setInvoiceNotesInput(item.invoiceNotes || '');
+    setInvoicePhotoUrl(item.invoicePhotoUrl || '');
+    setInvoicePhotoName(item.invoicePhotoName || '');
+  };
+
+  // Requirement 2: Upload foto yang terintegrasi langsung dengan kamera handphone atau file picker
+  const handleInvoicePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsCompressingInvoicePhoto(true);
+      const compressed = await compressImageFile(file, 1200, 1200, 0.8);
+      setInvoicePhotoUrl(compressed);
+      setInvoicePhotoName(file.name || 'Foto_Invoice.jpg');
+    } catch (err) {
+      console.warn('Compress failed, reading directly:', err);
+      const reader = new FileReader();
+      reader.onload = (uploadEv) => {
+        setInvoicePhotoUrl(uploadEv.target?.result as string);
+        setInvoicePhotoName(file.name || 'Foto_Invoice.jpg');
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsCompressingInvoicePhoto(false);
+    }
   };
 
   const handleSubmitInvoice = async (e: React.FormEvent) => {
@@ -263,7 +297,13 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
 
     setIsSubmittingInvoice(true);
     try {
-      const res = await createInvoice([invoiceModalItem.id], invoiceNumberInput.trim(), invoiceNotesInput.trim());
+      const res = await createInvoice(
+        [invoiceModalItem.id], 
+        invoiceNumberInput.trim(), 
+        invoiceNotesInput.trim(),
+        invoicePhotoUrl,
+        invoicePhotoName
+      );
       if (!res.success) {
         alert(res.message);
       } else {
@@ -500,7 +540,7 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                         {item.materialDescription}
                       </div>
                       <div className="text-[11px] text-slate-500 mt-0.5">
-                        SJ: <span className="font-mono font-bold text-slate-700">{item.nomorSuratJalan}</span> • Deliv: <span className="font-mono font-bold text-slate-700">{item.delivery || '-'}</span> • Cust: {item.name}
+                        SJ: <span className="font-mono font-bold text-slate-700">{item.nomorSuratJalan}</span> • Deliv: <span className="font-mono font-bold text-slate-700">{item.delivery || '-'}</span> • HU: <span className="font-mono font-bold text-slate-800">{item.handlingUnit || '-'}</span> • Cust: {item.name}
                       </div>
                       <div className="text-[10px] text-slate-400 mt-0.5">
                         Tgl Selesai: {item.completedDate || '-'}
@@ -535,10 +575,16 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                   <div className="pt-2 flex items-center justify-between text-xs border-t border-slate-100">
                     <span className="text-slate-500 font-medium text-[11px]">Status Invoice:</span>
                     {item.invoiceStatus === 'invoiced' ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-100 text-[#005BAC] border border-blue-300">
+                      <button
+                        type="button"
+                        onClick={() => setViewingInvoiceItem(item)}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-100 hover:bg-blue-200 text-[#005BAC] border border-blue-300 shadow-2xs transition"
+                        title="Klik untuk Review Detail & Foto Invoice"
+                      >
                         <Receipt className="w-3.5 h-3.5 text-[#005BAC]" />
-                        Invoice: {item.invoiceNumber || 'Created'}
-                      </span>
+                        <span>Invoice: {item.invoiceNumber || 'Created'}</span>
+                        <Eye className="w-3 h-3 text-blue-600 ml-0.5" />
+                      </button>
                     ) : isOwnerOrMaster ? (
                       <button
                         onClick={() => handleOpenInvoiceModal(item)}
@@ -591,6 +637,7 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                 <th className="py-3 px-3">Complete Date</th>
                 <th className="py-3 px-3">No. Surat Jalan</th>
                 <th className="py-3 px-3">Delivery (No)</th>
+                <th className="py-3 px-3">Handling Unit</th>
                 <th className="py-3 px-3">Shipment No</th>
                 <th className="py-3 px-3">Material (Part No)</th>
                 <th className="py-3 px-3">Deskripsi Sparepart</th>
@@ -607,7 +654,7 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
             <tbody className="divide-y divide-slate-200 text-slate-700">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={15} className="py-12 text-center text-slate-400">
+                  <td colSpan={16} className="py-12 text-center text-slate-400">
                     Tidak ada data yang sesuai dengan filter Complete Proses.
                   </td>
                 </tr>
@@ -665,6 +712,11 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
 
                       <td className="py-2.5 px-3 font-mono text-slate-700 whitespace-nowrap">
                         {item.delivery || '-'}
+                      </td>
+
+                      {/* Handling Unit */}
+                      <td className="py-2.5 px-3 font-mono font-bold text-slate-800 whitespace-nowrap">
+                        {item.handlingUnit || '-'}
                       </td>
 
                       <td className="py-2.5 px-3 font-mono text-slate-600 whitespace-nowrap">
@@ -751,16 +803,27 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                         )}
                       </td>
 
-                      {/* Requirement 6: Field Button Informasi Sudah Create Invoice */}
+                      {/* Requirement 2: Field Button Informasi Sudah Create Invoice (Klik untuk Review Detail & Foto) */}
                       <td className="py-2.5 px-3 text-center whitespace-nowrap">
                         {item.invoiceStatus === 'invoiced' ? (
                           <div className="inline-flex flex-col items-center">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-100 text-[#005BAC] border border-blue-300 shadow-2xs">
+                            <button
+                              type="button"
+                              onClick={() => setViewingInvoiceItem(item)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-100 hover:bg-blue-200 text-[#005BAC] border border-blue-300 shadow-2xs transition cursor-pointer"
+                              title="Klik untuk Review Detail & Foto Invoice"
+                            >
                               <Receipt className="w-3.5 h-3.5 text-[#005BAC]" />
-                              {item.invoiceNumber || 'Sudah Invoice'}
-                            </span>
-                            <span className="text-[10px] text-slate-400 mt-0.5 font-medium">
-                              Oleh: {item.invoicedBy || 'Owner'}
+                              <span>{item.invoiceNumber || 'Sudah Invoice'}</span>
+                              <Eye className="w-3 h-3 text-blue-600 ml-0.5" />
+                            </button>
+                            <span className="text-[10px] text-slate-400 mt-0.5 font-medium flex items-center gap-1">
+                              <span>Oleh: {item.invoicedBy || 'Owner'}</span>
+                              {item.invoicePhotoUrl && (
+                                <span className="text-emerald-600 font-bold flex items-center gap-0.5">
+                                  • <Camera className="w-2.5 h-2.5" /> Foto
+                                </span>
+                              )}
                             </span>
                           </div>
                         ) : isOwnerOrMaster ? (
@@ -1143,6 +1206,87 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                 />
               </div>
 
+              {/* Requirement 2: Fitur Upload Foto Terintegrasi Langsung dengan Kamera Handphone */}
+              <div className="pt-2 border-t border-slate-200">
+                <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+                  <span>Lampiran Foto Bukti Invoice *</span>
+                  <span className="text-[10px] text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 flex items-center gap-1">
+                    <Camera className="w-3 h-3 text-indigo-600" />
+                    Kamera Handphone Aktif
+                  </span>
+                </label>
+
+                {invoicePhotoUrl ? (
+                  <div className="p-3 bg-slate-50 border border-slate-300 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-700 truncate max-w-[240px]">
+                        {invoicePhotoName || 'Foto_Invoice.jpg'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInvoicePhotoUrl('');
+                          setInvoicePhotoName('');
+                        }}
+                        className="text-xs text-red-600 hover:text-red-800 font-bold transition"
+                      >
+                        Hapus Foto
+                      </button>
+                    </div>
+                    <div className="relative rounded-lg overflow-hidden border border-slate-300 max-h-52 flex items-center justify-center bg-black/5">
+                      <img
+                        src={invoicePhotoUrl}
+                        alt="Foto Invoice"
+                        className="max-h-52 w-auto object-contain rounded"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {/* Button 1: Kamera Handphone Langsung (capture="environment") */}
+                    <label className="flex flex-col items-center justify-center p-3.5 bg-indigo-50 hover:bg-indigo-100 border-2 border-dashed border-indigo-400 rounded-xl cursor-pointer transition text-center group">
+                      <Camera className="w-6 h-6 text-indigo-600 group-hover:scale-110 transition mb-1" />
+                      <span className="text-xs font-bold text-indigo-900">
+                        Ambil Foto Kamera (HP)
+                      </span>
+                      <span className="text-[10px] text-indigo-600">
+                        Buka kamera langsung
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handleInvoicePhotoChange}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {/* Button 2: File / Galeri */}
+                    <label className="flex flex-col items-center justify-center p-3.5 bg-slate-50 hover:bg-slate-100 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer transition text-center group">
+                      <Upload className="w-6 h-6 text-slate-600 group-hover:scale-110 transition mb-1" />
+                      <span className="text-xs font-bold text-slate-800">
+                        Pilih dari Galeri / File
+                      </span>
+                      <span className="text-[10px] text-slate-500">
+                        Upload dokumen gambar
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleInvoicePhotoChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                )}
+
+                {isCompressingInvoicePhoto && (
+                  <p className="text-[11px] text-indigo-600 mt-1 font-semibold animate-pulse">
+                    Sedang memproses & mengoptimasi foto...
+                  </p>
+                )}
+              </div>
+
               {/* Footer Controls */}
               <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
                 <button
@@ -1154,7 +1298,7 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmittingInvoice}
+                  disabled={isSubmittingInvoice || isCompressingInvoicePhoto}
                   className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <Receipt className="w-4 h-4" />
@@ -1162,6 +1306,152 @@ export const CompleteProsesView: React.FC<{ onNavigate: (menu: string) => void }
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Requirement 2: MODAL REVIEW INVOICE (Dapat Direview oleh User Admin, Owner, & Master System) */}
+      {viewingInvoiceItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full my-8 overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95">
+            <div className="bg-gradient-to-r from-blue-700 to-indigo-800 text-white px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/10 rounded-xl">
+                  <Receipt className="w-5 h-5 text-blue-200" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base">Detail & Review Invoice</h3>
+                  <p className="text-xs text-blue-100">
+                    Informasi Terbitan Invoice PT Astra International Tbk - Isuzu
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingInvoiceItem(null)}
+                className="p-1.5 text-blue-200 hover:text-white rounded-lg transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {/* Invoice Main Banner */}
+              <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-xl flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] text-blue-600 font-bold uppercase tracking-wider block">
+                    Nomor Invoice
+                  </span>
+                  <span className="text-lg font-black text-[#005BAC] font-mono">
+                    {viewingInvoiceItem.invoiceNumber || '-'}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[11px] text-slate-500 font-medium block">
+                    Diterbitkan Oleh:
+                  </span>
+                  <span className="text-xs font-bold text-slate-800">
+                    {viewingInvoiceItem.invoicedBy || 'Owner'}
+                  </span>
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    {viewingInvoiceItem.invoicedAt ? new Date(viewingInvoiceItem.invoicedAt).toLocaleDateString('id-ID', { dateStyle: 'medium' }) : '-'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Sparepart & Shipping Information */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">No. Surat Jalan:</span>
+                    <span className="font-mono font-bold text-slate-800">{viewingInvoiceItem.nomorSuratJalan}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Delivery (No):</span>
+                    <span className="font-mono font-bold text-slate-800">{viewingInvoiceItem.delivery || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Handling Unit:</span>
+                    <span className="font-mono font-bold text-slate-800">{viewingInvoiceItem.handlingUnit || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Material Part:</span>
+                    <span className="font-mono font-bold text-[#005BAC]">{viewingInvoiceItem.material}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Qty Invoice:</span>
+                    <span className="font-bold text-slate-800">
+                      {viewingInvoiceItem.qtyAktual ?? viewingInvoiceItem.quantity} {viewingInvoiceItem.handlingUnitUom}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Customer / Cabang:</span>
+                    <span className="font-semibold text-slate-800 truncate block">{viewingInvoiceItem.name}</span>
+                  </div>
+                </div>
+                {viewingInvoiceItem.invoiceNotes && (
+                  <div className="pt-2 border-t border-slate-200">
+                    <span className="text-slate-400 block text-[11px]">Catatan Invoice:</span>
+                    <p className="text-xs text-slate-700 italic bg-white p-2 rounded-lg border border-slate-200 mt-1">
+                      "{viewingInvoiceItem.invoiceNotes}"
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Foto Lampiran Invoice */}
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+                  <span>Lampiran Foto Invoice</span>
+                  {viewingInvoiceItem.invoicePhotoUrl && (
+                    <span className="text-emerald-700 font-bold text-[10px] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      Tersedia ✓
+                    </span>
+                  )}
+                </label>
+
+                {viewingInvoiceItem.invoicePhotoUrl ? (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                    <div className="relative rounded-lg overflow-hidden border border-slate-300 max-h-60 flex items-center justify-center bg-black/5">
+                      <img
+                        src={viewingInvoiceItem.invoicePhotoUrl}
+                        alt="Bukti Foto Invoice"
+                        className="max-h-60 w-auto object-contain rounded"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[11px] text-slate-500 truncate max-w-[200px]">
+                        {viewingInvoiceItem.invoicePhotoName || 'Foto_Invoice.jpg'}
+                      </span>
+                      <a
+                        href={viewingInvoiceItem.invoicePhotoUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1 text-xs font-bold text-[#005BAC] hover:text-blue-800 hover:bg-blue-50 rounded-lg transition flex items-center gap-1"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Buka Resolusi Penuh
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-6 text-center border-2 border-dashed border-slate-200 rounded-xl text-slate-400">
+                    <ImageIcon className="w-8 h-8 mx-auto text-slate-300 mb-1.5" />
+                    <p className="text-xs font-medium">Foto fisik invoice tidak dilampirkan oleh Owner.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Close Button */}
+              <div className="pt-3 border-t border-slate-200 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setViewingInvoiceItem(null)}
+                  className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition"
+                >
+                  Tutup Review
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

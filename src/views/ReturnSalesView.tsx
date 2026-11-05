@@ -47,6 +47,7 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
   // Tab filter: 'opened' | 'inprogress' | 'completed' | 'rejected'
   const [activeTab, setActiveTab] = useState<ClaimStatus>('opened');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState<string>('all');
 
   // Selected claim for modal
   const [activeModalClaim, setActiveModalClaim] = useState<ReturnSalesClaim | null>(null);
@@ -156,10 +157,33 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
   const isOwnerOrMaster = currentUser?.role === 'owner' || currentUser?.role === 'master';
   const isAdmin = currentUser?.role === 'admin';
 
-  // Filter accessible claims (Admin customer isolation)
-  const accessibleClaims = claims.filter(c => canAccessItem(c.customerName));
+  // Requirement 5: Pada menu Return Sales total claim sesuaikan hanya berdasarkan masing-masing akun admin perusahaan
+  const accessibleClaims = claims.filter(c => {
+    if (isOwnerOrMaster) return true;
+    if (isAdmin) {
+      const userCompany = (currentUser?.customerName || '').trim().toLowerCase();
+      const claimCompany = (c.customerName || '').trim().toLowerCase();
+      const submitter = (c.submittedBy || '').toLowerCase();
+      const userEmail = (currentUser?.email || '').toLowerCase();
 
-  // Tab counts
+      if (userCompany && (claimCompany.includes(userCompany) || userCompany.includes(claimCompany))) {
+        return true;
+      }
+      if (userCompany && submitter.includes(userCompany)) {
+        return true;
+      }
+      if (userEmail && submitter.includes(userEmail)) {
+        return true;
+      }
+      return false;
+    }
+    return true;
+  });
+
+  // Unique customer list for Owner/Master filter
+  const customerList = Array.from(new Set(claims.map(c => c.customerName).filter(Boolean))).sort();
+
+  // Tab counts based strictly on accessible claims (Admin company isolation)
   const countOpened = accessibleClaims.filter(c => c.status === 'opened').length;
   const countInprogress = accessibleClaims.filter(c => c.status === 'inprogress').length;
   const countCompleted = accessibleClaims.filter(c => c.status === 'completed').length;
@@ -171,6 +195,9 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
 
   const filteredClaims = accessibleClaims.filter(claim => {
     if (claim.status !== activeTab) return false;
+    if (selectedCustomer !== 'all' && claim.customerName !== selectedCustomer) {
+      return false;
+    }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchSJ = claim.nomorSuratJalan.toLowerCase().includes(q);
@@ -353,6 +380,23 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
           <p className="text-sm text-slate-500 mt-0.5">
             Daftar klaim kekurangan kuantitas fisik sparepart. Unggah 3 dokumen bukti, tracking lead time, proses analisa Owner, dan approval akhir.
           </p>
+          {isAdmin && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-50 text-[#005BAC] border border-blue-200">
+                🏢 Perusahaan: <strong>{currentUser.customerName}</strong>
+              </span>
+              <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-red-50 text-red-700 border border-red-200">
+                Total Klaim Perusahaan Anda: <strong>{accessibleClaims.length}</strong> Klaim
+              </span>
+            </div>
+          )}
+          {isOwnerOrMaster && (
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200">
+                Otoritas Owner & Master: <strong>{accessibleClaims.length}</strong> Total Seluruh Klaim
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3">
@@ -521,15 +565,32 @@ export const ReturnSalesView: React.FC<{ onNavigate: (menu: string) => void }> =
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         {/* Filter & Search Bar */}
         <div className="p-5 border-b border-slate-200 bg-slate-50/60 flex flex-wrap items-center justify-between gap-4">
-          <div className="relative min-w-[280px] flex-1">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              placeholder="Cari Claim ID, No Surat Jalan, Material, Customer..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="flex flex-wrap items-center gap-3 flex-1">
+            {/* Customer Dropdown for Owner / Master */}
+            {(isOwnerOrMaster || customerList.length > 1) && (
+              <select
+                value={selectedCustomer}
+                onChange={(e) => setSelectedCustomer(e.target.value)}
+                className="px-3 py-2 text-xs font-semibold bg-white border border-slate-300 rounded-xl outline-none text-slate-800 max-w-[220px] truncate"
+                title="Filter Berdasarkan Perusahaan"
+              >
+                <option value="all">🏢 Semua Perusahaan ({customerList.length})</option>
+                {customerList.map(cust => (
+                  <option key={cust} value={cust}>{cust}</option>
+                ))}
+              </select>
+            )}
+
+            <div className="relative min-w-[260px] flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Cari Claim ID, No Surat Jalan, Material, Customer..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-2 text-xs text-slate-600">

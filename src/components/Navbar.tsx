@@ -38,7 +38,17 @@ export const Navbar: React.FC<NavbarProps> = ({ activeMenu, onSelectMenu, onOpen
   const pendingUsersCount = allUsers.filter(u => u.status === 'pending').length;
 
   // Requirement 1 & 4: Menu Navigation
-  const navItems = [
+  interface NavItem {
+    id: string;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    ownerOnly?: boolean;
+    masterOnly?: boolean;
+    ownerOrMasterOnly?: boolean;
+    count?: number;
+  }
+
+  const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { 
       id: 'upload', 
@@ -49,7 +59,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeMenu, onSelectMenu, onOpen
     { id: 'check', label: 'Check Sparepart', icon: CheckSquare },
     { id: 'complete', label: 'Complete Proses', icon: PackageCheck },
     { id: 'returns', label: 'Return Sales', icon: AlertOctagon, count: pendingClaimsCount },
-    { id: 'users', label: 'Approval Akun', icon: Users, count: pendingUsersCount, masterOnly: true },
+    { id: 'users', label: 'Approval Akun', icon: Users, count: pendingUsersCount, ownerOrMasterOnly: true },
     { 
       id: 'settings', 
       label: 'Pengaturan System', 

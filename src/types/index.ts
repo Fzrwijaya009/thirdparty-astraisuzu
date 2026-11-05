@@ -59,6 +59,8 @@ export interface SuratJalanItem {
   invoicedAt?: string;
   invoicedBy?: string;
   invoiceNotes?: string;
+  invoicePhotoUrl?: string;
+  invoicePhotoName?: string;
 
   // Claim & Replacement tracking
   claimStatus?: 'unclaimed' | 'claimed';

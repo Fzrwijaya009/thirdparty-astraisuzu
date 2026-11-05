@@ -71,7 +71,7 @@ interface AppContextType {
   completeReplacement: (claimId: string, docNumber?: string, notes?: string) => { success: boolean; message?: string };
 
   // Invoice Management (Owner & Master System only)
-  createInvoice: (itemIds: string[], invoiceNumber: string, notes?: string) => { success: boolean; message?: string };
+  createInvoice: (itemIds: string[], invoiceNumber: string, notes?: string, photoUrl?: string, photoName?: string) => { success: boolean; message?: string };
 
   // System Data Management
   clearShipmentsData: () => Promise<void>;
@@ -233,11 +233,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         setAllUsers(loaded);
 
-        // If current user is logged in, refresh their status in real-time (e.g. when approved by Master)
+        // Requirement 4: Ketika admin sedang login, maka otomatis langsung logout apabila akun tersebut dihapus oleh Master System maupun Owner
         if (currentUser) {
+          const isMaster = currentUser.role === 'master' || currentUser.email.toLowerCase() === 'fajrisani12@gmail.com';
           const fresh = loaded.find(u => u.email.toLowerCase() === currentUser.email.toLowerCase());
-          if (fresh && (fresh.status !== currentUser.status || fresh.role !== currentUser.role)) {
-            setCurrentUser(fresh);
+
+          // If the user's document was deleted from Firestore and we have received a valid user list:
+          if (!fresh && !isMaster && loaded.length > 0) {
+            console.warn(`User ${currentUser.email} has been deleted. Triggering automatic logout.`);
+            alert(`Sesi Berakhir: Akun Anda (${currentUser.email}) telah dinonaktifkan atau dihapus dari sistem oleh administrator. Silakan hubungi Master System jika ini adalah kekeliruan.`);
+            setCurrentUser(null);
+            try {
+              localStorage.removeItem(STORAGE_AUTH_KEY);
+            } catch {}
+            return;
+          }
+
+          if (fresh) {
+            if (fresh.status === 'rejected' && currentUser.role === 'admin') {
+              alert(`Sesi Berakhir: Status akun Anda telah ditolak atau dinonaktifkan.`);
+              setCurrentUser(null);
+              try {
+                localStorage.removeItem(STORAGE_AUTH_KEY);
+              } catch {}
+              return;
+            }
+            if (
+              fresh.status !== currentUser.status || 
+              fresh.role !== currentUser.role || 
+              fresh.displayName !== currentUser.displayName || 
+              fresh.customerName !== currentUser.customerName
+            ) {
+              setCurrentUser(fresh);
+            }
           }
         }
       },
@@ -523,12 +551,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAllUsers(prev => prev.map(u => (u.uid === uid ? { ...u, status: 'rejected' } : u)));
   };
 
-  // Requirement 3: Otorisasi Hapus Akun pada akun Master System fajrisani12@gmail.com
+  // Requirement 4: Otorisasi Hapus Akun pada akun Master System & Owner
   const deleteUser = async (uid: string): Promise<{ success: boolean; message?: string }> => {
-    if (currentUser?.role !== 'master' || currentUser?.email.toLowerCase() !== 'fajrisani12@gmail.com') {
+    if (!currentUser || (currentUser.role !== 'master' && currentUser.role !== 'owner')) {
       return { 
         success: false, 
-        message: 'Akses Ditolak: Hanya akun Master System (fajrisani12@gmail.com) yang berwenang menghapus akun.' 
+        message: 'Akses Ditolak: Hanya akun Master System atau Owner yang berwenang menghapus akun.' 
       };
     }
 
@@ -537,6 +565,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (targetUser.email.toLowerCase() === 'fajrisani12@gmail.com') {
       return { success: false, message: 'Akun Master Utama fajrisani12@gmail.com tidak dapat dihapus.' };
+    }
+
+    if (currentUser.role === 'owner' && targetUser.role === 'master') {
+      return { success: false, message: 'Akses Ditolak: Akun Owner tidak dapat menghapus akun Master System.' };
     }
 
     try {
@@ -953,8 +985,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, message: 'Klaim berhasil ditolak.' };
   };
 
-  // Requirement 6: Create Invoice oleh Owner & Master System
-  const createInvoice = (itemIds: string[], invoiceNumber: string, notes?: string): { success: boolean; message?: string } => {
+  // Requirement 2: Create Invoice oleh Owner & Master System (dengan integrasi foto/kamera)
+  const createInvoice = (
+    itemIds: string[], 
+    invoiceNumber: string, 
+    notes?: string, 
+    photoUrl?: string, 
+    photoName?: string
+  ): { success: boolean; message?: string } => {
     if (!currentUser || (currentUser.role !== 'owner' && currentUser.role !== 'master')) {
       return {
         success: false,
@@ -976,7 +1014,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           invoiceNumber: invoiceNumber.trim(),
           invoicedAt: nowIso,
           invoicedBy: invBy,
-          invoiceNotes: notes || ''
+          invoiceNotes: notes || '',
+          invoicePhotoUrl: photoUrl || item.invoicePhotoUrl || '',
+          invoicePhotoName: photoName || item.invoicePhotoName || ''
         };
         setDoc(doc(db, 'shipments', item.id), cleanFirestoreData(updated)).catch(e => {
           handleFirestoreError(e, OperationType.UPDATE, `shipments/${item.id}`);
