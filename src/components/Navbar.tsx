@@ -92,6 +92,16 @@ export const Navbar: React.FC<NavbarProps> = ({ activeMenu, onSelectMenu, onOpen
           <div className="flex items-center gap-2 sm:gap-3">
             {currentUser ? (
               <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={logout}
+                  title="Kembali ke Tampilan Menu Login"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-[11px] sm:text-xs transition cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden xs:inline">Menu Login</span>
+                </button>
+
                 <div className="relative">
                   <button
                     onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
